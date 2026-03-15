@@ -11,13 +11,13 @@ between platform engineering concerns and workflow implementation.
   - `GET /v1/models`
   - `POST /v1/chat/completions`
 - LangGraph-based workflow orchestration
-- streaming and non-streaming responses
+- Streaming and non-streaming responses
 - HITL interrupt and resume support
 - Langfuse callback integration for observability
-- root config plus per-workflow config layering
+- Root config plus per-workflow config layering
 - Nacos-backed dynamic configuration with local YAML fallback
 - Redis or in-memory LangGraph checkpointer support
-- reusable `dynamic_config` capability consumed from the published PyPI package
+- Reusable `dynamic_config` capability consumed from the published PyPI package
   `dynamic-config-nacos`
 
 ## Architecture
@@ -25,21 +25,21 @@ between platform engineering concerns and workflow implementation.
 - `src/app/`
   FastAPI composition root and lifespan wiring.
 - `src/application/`
-  request orchestration, routing, and use-case services.
+  Request orchestration, routing, and use-case services.
 - `src/domain/`
-  contracts, request context, and workflow specs.
+  Contracts, request context, and workflow specs.
 - `src/infrastructure/`
-  config, HTTP, logging, persistence, monitoring, and LLM adapters.
+  Config, HTTP, logging, persistence, monitoring, and LLM adapters.
 - `src/presentation/`
-  transport-layer schemas.
+  Transport-layer schemas.
 - `src/workflows/`
-  workflow graph implementations and registry.
+  Workflow graph implementations and registry.
 
 ## Local Commands
 
 ```bash
 uv sync --python 3.12 --all-extras
-uv run --python 3.12 uvicorn --app-dir src app.main:app --reload
+uv run --python 3.12 uvicorn --env-file .env --app-dir src app.main:app --reload
 uv run --python 3.12 pytest
 uv run --python 3.12 ruff check .
 uv run --python 3.12 ruff format .
@@ -62,16 +62,16 @@ uv run --python 3.12 ruff format .
 
 ## Configuration
 
-- root config: `configs/local.yaml`
-- workflow local fallback config:
+- Root config: `configs/local.yaml`
+- Workflow local fallback config:
   - `configs/workflows/demo_hitl.yaml`
   - `configs/workflows/demo_summary.yaml`
 
 The default sample configuration is safe to publish:
 
 - Langfuse is disabled by default
-- external API keys are placeholders
-- checkpointer defaults to `memory`
+- External API keys are placeholders
+- Checkpointer defaults to `memory`
 
 ## Included Demo Workflows
 
@@ -80,7 +80,7 @@ The default sample configuration is safe to publish:
 - `demo_summary`
   Simple summarization flow without interrupt.
 
-## More Docs
+## Documentation
 
 - [Usage Guide](docs/usage.md)
 - [Usage Guide (中文)](docs/usage.zh-CN.md)
@@ -88,3 +88,5 @@ The default sample configuration is safe to publish:
 - [Design Guide (中文)](docs/design.zh-CN.md)
 - [Dynamic Config](docs/dynamic_config.md)
 - [Dynamic Config (中文)](docs/dynamic_config.zh-CN.md)
+- [Changelog](CHANGELOG.md)
+- [Release Notes v0.1.1](docs/releases/v0.1.1.md)
