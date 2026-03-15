@@ -105,7 +105,5 @@ uv run --python 3.12 ruff format .
 - [Usage Guide](docs/usage.md)
 - [设计说明](docs/design.zh-CN.md)
 - [Design Guide](docs/design.md)
-- [动态配置说明](docs/dynamic_config.zh-CN.md)
-- [Dynamic Config](docs/dynamic_config.md)
 - [变更日志](CHANGELOG.md)
-- [v0.1.1 发版说明](docs/releases/v0.1.1.md)
+- [v0.1.2 发版说明](docs/releases/v0.1.2.md)
