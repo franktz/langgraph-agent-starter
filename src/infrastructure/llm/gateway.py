@@ -16,6 +16,8 @@ from infrastructure.logging.factory import LoggerFactory
 class ChatMessage:
     role: str
     content: str
+    name: str | None = None
+    tool_call_id: str | None = None
 
 
 class LlmGateway:
@@ -68,8 +70,11 @@ class LlmGateway:
         stream_to_client: bool,
     ) -> AsyncIterator[str]:
         user_text = next((m.content for m in reversed(messages) if m.role == "user"), "")
+        prior_user_count = max(sum(1 for message in messages if message.role == "user") - 1, 0)
         model_name = str(llm_config.get("model", llm_name) or llm_name)
         content = f"[{systemkey}/{model_name}] {user_text or '(empty)'}"
+        if prior_user_count:
+            content = f"{content} (history_users={prior_user_count})"
         for index, token in enumerate(content.split(" ")):
             if index:
                 await self._emit_token(" ", stream_to_client=stream_to_client)
@@ -96,7 +101,7 @@ class LlmGateway:
 
         payload: dict[str, Any] = {
             "model": model_name,
-            "messages": [{"role": item.role, "content": item.content} for item in messages],
+            "messages": [self._payload_message(item) for item in messages],
             "stream": True,
         }
         max_tokens = llm_config.get("max_tokens")
@@ -169,6 +174,17 @@ class LlmGateway:
         if not stream_to_client:
             return
         await emit_stream_token(token)
+
+    def _payload_message(self, message: ChatMessage) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "role": message.role,
+            "content": message.content,
+        }
+        if message.name:
+            payload["name"] = message.name
+        if message.tool_call_id:
+            payload["tool_call_id"] = message.tool_call_id
+        return payload
 
     def _extract_stream_content(self, response: object) -> str:
         if not isinstance(response, dict):

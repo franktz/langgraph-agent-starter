@@ -59,6 +59,9 @@ def test_runtime_langfuse_metadata_contains_filterable_fields() -> None:
     assert metadata["langfuse_request_id"] == "req-789"
     assert metadata["langfuse_session_id"] == "session-123"
     assert metadata["langfuse_user_id"] == "user-456"
+    assert config["configurable"]["thread_id"] == (
+        "workflow=demo_summary|systemkey=full-system-key-demo|user_id=user-456|session_id=session-123"
+    )
     assert "request_id:req-789" in metadata["langfuse_tags"]
     assert "systemkey:full-system-key-demo" in metadata["langfuse_tags"]
     assert "workflow:demo_summary" in metadata["langfuse_tags"]

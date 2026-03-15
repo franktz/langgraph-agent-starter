@@ -5,12 +5,12 @@ import json
 from fastapi.testclient import TestClient
 
 
-def test_v1_models_lists_two_demo_workflows(client: TestClient) -> None:
+def test_v1_models_lists_demo_workflows(client: TestClient) -> None:
     response = client.get("/v1/models")
 
     assert response.status_code == 200
     ids = [item["id"] for item in response.json()["data"]]
-    assert ids == ["demo_hitl", "demo_summary"]
+    assert ids == ["demo_chat", "demo_hitl", "demo_summary"]
 
 
 def test_chat_completions_non_stream_summary_returns_text(client: TestClient) -> None:
@@ -97,6 +97,138 @@ def test_chat_completions_stream_summary_returns_multiple_content_chunks(client:
 
         assert len(content_chunks) > 1
         assert "".join(content_chunks)
+        assert finish_reason == "stop"
+
+
+def test_chat_completions_non_stream_chat_supports_multi_turn_history(client: TestClient) -> None:
+    first = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "demo_chat",
+            "messages": [{"role": "user", "content": "Hello there"}],
+        },
+        headers={"systemkey": "demo-system", "session-id": "chat-session", "user-id": "chat-user"},
+    )
+
+    assert first.status_code == 200
+    first_payload = first.json()
+    assert first_payload["choices"][0]["message"]["content"] == "[demo-system/mock-chat] Hello there"
+
+    second = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "demo_chat",
+            "messages": [{"role": "user", "content": "What did I just say?"}],
+        },
+        headers={"systemkey": "demo-system", "session-id": "chat-session", "user-id": "chat-user"},
+    )
+
+    assert second.status_code == 200
+    second_payload = second.json()
+    assert second_payload["choices"][0]["finish_reason"] == "stop"
+    assert second_payload["choices"][0]["message"]["content"] == (
+        "[demo-system/mock-chat] What did I just say? (history_users=1)"
+    )
+
+
+def test_chat_completions_chat_reuses_persisted_answer_for_replayed_history(client: TestClient) -> None:
+    first = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "demo_chat",
+            "messages": [{"role": "user", "content": "Replay-safe question"}],
+        },
+        headers={"systemkey": "demo-system", "session-id": "chat-replay-session", "user-id": "chat-user"},
+    )
+
+    assert first.status_code == 200
+    assistant_message = first.json()["choices"][0]["message"]["content"]
+
+    replay = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "demo_chat",
+            "messages": [
+                {"role": "user", "content": "Replay-safe question"},
+                {"role": "assistant", "content": assistant_message},
+            ],
+        },
+        headers={"systemkey": "demo-system", "session-id": "chat-replay-session", "user-id": "chat-user"},
+    )
+
+    assert replay.status_code == 200
+    assert replay.json()["choices"][0]["message"]["content"] == assistant_message
+
+
+def test_chat_completions_chat_history_isolated_by_user_and_workflow(client: TestClient) -> None:
+    warmup = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "demo_chat",
+            "messages": [{"role": "user", "content": "Remember me"}],
+        },
+        headers={"systemkey": "demo-system", "session-id": "shared-session", "user-id": "user-a"},
+    )
+    assert warmup.status_code == 200
+
+    different_user = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "demo_chat",
+            "messages": [{"role": "user", "content": "Do you have prior context?"}],
+        },
+        headers={"systemkey": "demo-system", "session-id": "shared-session", "user-id": "user-b"},
+    )
+
+    assert different_user.status_code == 200
+    assert different_user.json()["choices"][0]["message"]["content"] == (
+        "[demo-system/mock-chat] Do you have prior context?"
+    )
+
+    different_workflow = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "demo_summary",
+            "messages": [{"role": "user", "content": "Same session, different workflow"}],
+        },
+        headers={"systemkey": "demo-system", "session-id": "shared-session", "user-id": "user-a"},
+    )
+
+    assert different_workflow.status_code == 200
+    assert different_workflow.json()["model"] == "demo_summary"
+
+
+def test_chat_completions_stream_chat_returns_multiple_content_chunks(client: TestClient) -> None:
+    with client.stream(
+        "POST",
+        "/v1/chat/completions",
+        json={
+            "model": "demo_chat",
+            "messages": [{"role": "user", "content": "Stream this answer"}],
+            "stream": True,
+        },
+        headers={"systemkey": "demo-system", "session-id": "chat-stream-session", "user-id": "chat-user"},
+    ) as response:
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+        content_chunks: list[str] = []
+        finish_reason = None
+        for line in response.iter_lines():
+            if not line or not line.startswith("data: "):
+                continue
+            if line == "data: [DONE]":
+                break
+            payload = json.loads(line[6:])
+            choice = payload["choices"][0]
+            delta = choice["delta"]
+            if delta.get("content"):
+                content_chunks.append(delta["content"])
+            if choice["finish_reason"] is not None:
+                finish_reason = choice["finish_reason"]
+
+        assert len(content_chunks) > 1
+        assert "".join(content_chunks) == "[demo-system/mock-chat] Stream this answer"
         assert finish_reason == "stop"
 
 

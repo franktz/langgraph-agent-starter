@@ -2,8 +2,9 @@
 
 [English](curl_examples.md)
 
-这些示例使用 Bash 语法，并面向仓库内置的两个 demo workflow：
+这些示例使用 Bash 语法，并面向仓库内置的 demo workflow：
 
+- `demo_chat`：带持久化历史的多轮聊天流程
 - `demo_summary`：不带 HITL 的普通流程
 - `demo_hitl`：带人工介入中断与恢复的流程
 
@@ -38,6 +39,48 @@ curl -sS -X POST "$BASE_URL/v1/chat/completions" \
       {
         "role": "user",
         "content": "Please summarize this week'\''s launch checklist and highlight actions, risks, and owners."
+      }
+    ]
+  }'
+```
+
+## 首轮调用 `demo_chat`
+
+如果你希望后续轮次延续聊天历史，请继续复用同一个 `session-id` 和 `user-id`。
+
+```bash
+curl -sS -X POST "$BASE_URL/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "SYSTEMKEY: $SYSTEMKEY" \
+  -H "user-id: $USER_ID" \
+  -H "session-id: $SESSION_ID" \
+  -d '{
+    "model": "demo_chat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hi, please remember that my deployment window is every Friday night."
+      }
+    ]
+  }'
+```
+
+## 后续轮次继续调用 `demo_chat`
+
+后续轮次只传本轮新增的 user message 即可。workflow 会按同一个身份范围从 LangGraph checkpointer 恢复之前的历史。
+
+```bash
+curl -sS -X POST "$BASE_URL/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "SYSTEMKEY: $SYSTEMKEY" \
+  -H "user-id: $USER_ID" \
+  -H "session-id: $SESSION_ID" \
+  -d '{
+    "model": "demo_chat",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What deployment window did I tell you earlier?"
       }
     ]
   }'
@@ -128,10 +171,33 @@ curl -N -sS -X POST "$BASE_URL/v1/chat/completions" \
   }'
 ```
 
+## 流式调用 `demo_chat`
+
+`demo_chat` 同样支持真 SSE 流式输出，服务端会随着上游 LLM 返回内容持续发出增量 chunk。
+
+```bash
+curl -N -sS -X POST "$BASE_URL/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "SYSTEMKEY: $SYSTEMKEY" \
+  -H "user-id: $USER_ID" \
+  -H "session-id: $SESSION_ID" \
+  -d '{
+    "model": "demo_chat",
+    "stream": true,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Explain the rollback plan in a concise way."
+      }
+    ]
+  }'
+```
+
 ## 说明
 
 - `model` 直接映射到 workflow 名称。
 - `SYSTEMKEY` 用来标识调用方所属的业务系统范围；当前 demo 的上游模型配置统一放在各自 workflow 配置里的 `llm.default` 下。
 - 当开启 `api.auth.enabled` 时，`SYSTEMKEY` 必须命中 `api.auth.systemkeys` 白名单，否则接口会返回 `401 invalid_system_key`。
-- 当前仓库内置 `demo_hitl` 和 `demo_summary` 两个 workflow。
+- `demo_chat` 的对话历史会按 `model + systemkey + user-id + session-id` 这个组合范围隔离。
+- 当前仓库内置 `demo_chat`、`demo_hitl` 和 `demo_summary` 三个 workflow。
 - 如果只想测试 HITL 恢复行为，请在前后两次请求中保持同一个 `session-id`。

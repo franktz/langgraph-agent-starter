@@ -1,0 +1,17 @@
+llm:
+  default:
+    provider: mock
+    base_url: ""
+    apikey: ""
+    headers:
+      X-Tenant: your-tenant
+    model: mock-chat
+    timeout: 30000
+    max_tokens: 512
+    retry:
+      attempts: 2
+      min_wait: 200
+      max_wait: 1000
+
+prompts:
+  system_prompt: "You are the demo_chat assistant. Answer conversationally and keep continuity across turns."

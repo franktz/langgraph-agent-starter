@@ -10,3 +10,4 @@ class WorkflowSpec:
     description: str
     supports_hitl: bool
     builder: Any
+    supports_conversation: bool = False

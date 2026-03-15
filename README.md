@@ -81,6 +81,7 @@ uv run --python 3.12 ruff format .
 
 - Root config: `configs/local.yaml`
 - Workflow local fallback config:
+  - `configs/workflows/demo_chat.yaml`
   - `configs/workflows/demo_hitl.yaml`
   - `configs/workflows/demo_summary.yaml`
 
@@ -92,10 +93,16 @@ The default sample configuration is safe to publish:
 
 ## Included Demo Workflows
 
+- `demo_chat`
+  Multi-turn chat workflow backed by LangGraph state and checkpointer.
 - `demo_hitl`
   Draft generation followed by human review interrupt.
 - `demo_summary`
   Simple summarization flow without interrupt.
+
+For `demo_chat`, conversation continuity is scoped by the combination of
+`model`, `systemkey`, `user-id`, and `session-id`. Reusing the same
+`user-id` + `session-id` pair under the same workflow continues the chat.
 
 ## Documentation
 

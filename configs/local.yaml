@@ -50,6 +50,10 @@ workflow_configs:
       polling_interval_seconds: 2
       data_id_template: "langgraph-agent-starter.workflow.{workflow}.yaml"
   items:
+    demo_chat:
+      local_path: configs/workflows/demo_chat.yaml
+      nacos:
+        data_id: langgraph-agent-starter.workflow.demo_chat.yaml
     demo_hitl:
       local_path: configs/workflows/demo_hitl.yaml
       nacos:

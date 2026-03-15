@@ -78,6 +78,7 @@ uv run --python 3.12 ruff format .
 
 - 根配置：`configs/local.yaml`
 - Workflow 本地 fallback 配置：
+  - `configs/workflows/demo_chat.yaml`
   - `configs/workflows/demo_hitl.yaml`
   - `configs/workflows/demo_summary.yaml`
 
@@ -89,10 +90,14 @@ uv run --python 3.12 ruff format .
 
 ## 内置示例 Workflow
 
+- `demo_chat`
+  基于 LangGraph state 和 checkpointer 的多轮聊天流程。
 - `demo_hitl`
   先生成草稿，再进入人工审核中断。
 - `demo_summary`
   一个不带中断的简单总结流程。
+
+其中 `demo_chat` 的会话连续性由 `model`、`systemkey`、`user-id`、`session-id` 共同决定；在同一 workflow 下复用同一组 `user-id` 和 `session-id`，就会延续之前的聊天历史。
 
 ## 文档入口
 

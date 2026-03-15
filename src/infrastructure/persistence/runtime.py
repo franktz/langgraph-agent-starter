@@ -6,6 +6,7 @@ import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.types import Command
 
 from domain.auth.models import RequestContext
@@ -53,6 +54,7 @@ class WorkflowRuntime:
 
     async def run_once(self, *, request: ChatCompletionRequest, ctx: RequestContext) -> dict[str, Any]:
         graph = self._get_graph(ctx.workflow)
+        spec = self._workflow_registry.get_spec(ctx.workflow)
         last_user = self._last_user_text(request) or ""
         self._logger.info(
             "[FLOW] workflow=%s session=%s user=%s -> run:start",
@@ -65,6 +67,70 @@ class WorkflowRuntime:
                 "user_id": ctx.user_id,
             },
         )
+        if spec.supports_conversation:
+            existing_messages = await self._current_messages(graph=graph, ctx=ctx)
+            incoming_messages = self._normalize_request_messages(request)
+            delta_messages = self._messages_delta(existing=existing_messages, incoming=incoming_messages)
+            if not delta_messages:
+                cached_answer = self._last_assistant_text(existing_messages)
+                if cached_answer is not None:
+                    self._logger.info(
+                        "[CHAT] workflow=%s session=%s -> history:reused persisted=%s incoming=%s",
+                        ctx.workflow,
+                        ctx.session_id,
+                        len(existing_messages),
+                        len(incoming_messages),
+                        extra={
+                            "workflow": ctx.workflow,
+                            "session_id": ctx.session_id,
+                            "persisted_messages": len(existing_messages),
+                            "incoming_messages": len(incoming_messages),
+                        },
+                    )
+                    return {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": cached_answer},
+                        "finish_reason": "stop",
+                    }
+            self._logger.info(
+                "[CHAT] workflow=%s session=%s -> history:merge persisted=%s incoming=%s append=%s thread=%s",
+                ctx.workflow,
+                ctx.session_id,
+                len(existing_messages),
+                len(incoming_messages),
+                len(delta_messages),
+                ctx.thread_id,
+                extra={
+                    "workflow": ctx.workflow,
+                    "session_id": ctx.session_id,
+                    "persisted_messages": len(existing_messages),
+                    "incoming_messages": len(incoming_messages),
+                    "appended_messages": len(delta_messages),
+                    "thread_id": ctx.thread_id,
+                },
+            )
+            with bind_llm_gateway(self._llm_gateway):
+                result = await graph.ainvoke(
+                    {
+                        "messages": delta_messages,
+                        "systemkey": ctx.systemkey,
+                        "user_id": ctx.user_id,
+                    },
+                    config=self._config(ctx),
+                )
+            content = self._result_text(result)
+            self._logger.info(
+                "[FLOW] workflow=%s session=%s -> run:completed output=%r",
+                ctx.workflow,
+                ctx.session_id,
+                self._preview_text(content),
+                extra={
+                    "workflow": ctx.workflow,
+                    "session_id": ctx.session_id,
+                    "output_preview": self._preview_text(content),
+                },
+            )
+            return {"index": 0, "message": {"role": "assistant", "content": content}, "finish_reason": "stop"}
         resume_payload = self._resume_payload(request)
         if resume_payload is not None:
             self._logger.info(
@@ -95,7 +161,7 @@ class WorkflowRuntime:
                 )
         if isinstance(result, dict) and result.get("__interrupt__") is not None:
             interrupt_payload = self._normalize_interrupt(result.get("__interrupt__"))
-            self._session_state[ctx.session_id] = {"workflow": ctx.workflow, "interrupt": interrupt_payload}
+            self._session_state[ctx.thread_id] = {"workflow": ctx.workflow, "interrupt": interrupt_payload}
             self._logger.info(
                 "[HITL] workflow=%s session=%s -> interrupt:waiting_human_input payload=%s",
                 ctx.workflow,
@@ -125,7 +191,7 @@ class WorkflowRuntime:
                 },
                 "finish_reason": "tool_calls",
             }
-        self._session_state.pop(ctx.session_id, None)
+        self._session_state.pop(ctx.thread_id, None)
         self._logger.info(
             "[FLOW] workflow=%s session=%s -> run:completed output=%r",
             ctx.workflow,
@@ -253,7 +319,7 @@ class WorkflowRuntime:
         self._graph_cache[workflow] = graph
         return graph
 
-    def _config(self, ctx: RequestContext) -> dict[str, Any]:
+    def _config(self, ctx: RequestContext, *, include_callbacks: bool = True) -> dict[str, Any]:
         request_id = request_id_var.get("-")
         trace_tags = [
             f"workflow:{ctx.workflow}",
@@ -261,7 +327,7 @@ class WorkflowRuntime:
             f"request_id:{request_id}",
         ]
         config: dict[str, Any] = {
-            "configurable": {"thread_id": ctx.session_id},
+            "configurable": {"thread_id": ctx.thread_id},
             "metadata": {
                 "request_id": request_id,
                 "systemkey": ctx.systemkey,
@@ -275,10 +341,118 @@ class WorkflowRuntime:
             },
             "tags": trace_tags,
         }
-        langfuse_handler = self._langfuse_factory.make_handler()
+        langfuse_handler = self._langfuse_factory.make_handler() if include_callbacks else None
         if langfuse_handler is not None:
             config["callbacks"] = [langfuse_handler]
         return config
+
+    async def _current_messages(self, *, graph, ctx: RequestContext) -> list[BaseMessage]:
+        snapshot = await graph.aget_state(self._config(ctx, include_callbacks=False))
+        values = snapshot.values if hasattr(snapshot, "values") else {}
+        if not isinstance(values, dict):
+            return []
+        raw_messages = values.get("messages", [])
+        if not isinstance(raw_messages, list):
+            return []
+        return [message for message in raw_messages if isinstance(message, BaseMessage)]
+
+    def _normalize_request_messages(self, request: ChatCompletionRequest) -> list[BaseMessage]:
+        messages: list[BaseMessage] = []
+        for index, message in enumerate(request.messages):
+            normalized = self._normalize_request_message(message=message, index=index)
+            if normalized is not None:
+                messages.append(normalized)
+        return messages
+
+    def _normalize_request_message(self, *, message, index: int) -> BaseMessage | None:
+        content = self._message_text(message.content)
+        role = str(message.role or "").strip().lower()
+        if role == "assistant":
+            if not content:
+                return None
+            return AIMessage(content=content)
+        if role == "system":
+            if not content:
+                return None
+            return SystemMessage(content=content)
+        if role == "tool":
+            if not content:
+                return None
+            tool_call_id = message.tool_call_id or f"tool-{index}"
+            return ToolMessage(content=content, tool_call_id=tool_call_id)
+        if not content:
+            return None
+        return HumanMessage(content=content)
+
+    def _message_text(self, content: str | list[dict[str, Any]] | None) -> str:
+        if isinstance(content, str):
+            return content
+        if not isinstance(content, list):
+            return ""
+        parts: list[str] = []
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            if item.get("type") != "text":
+                continue
+            text = item.get("text")
+            if isinstance(text, str):
+                parts.append(text)
+        return "".join(parts)
+
+    def _messages_delta(self, *, existing: list[BaseMessage], incoming: list[BaseMessage]) -> list[BaseMessage]:
+        if not existing or not incoming:
+            return list(incoming)
+        existing_projection = [self._message_projection(message) for message in existing]
+        incoming_projection = [self._message_projection(message) for message in incoming]
+
+        common_prefix = 0
+        for left, right in zip(existing_projection, incoming_projection):
+            if left != right:
+                break
+            common_prefix += 1
+        if common_prefix:
+            return incoming[common_prefix:]
+
+        overlap_limit = min(len(existing_projection), len(incoming_projection))
+        for size in range(overlap_limit, 0, -1):
+            if existing_projection[-size:] == incoming_projection[:size]:
+                return incoming[size:]
+        return list(incoming)
+
+    def _message_projection(self, message: BaseMessage) -> tuple[str, str, str | None, str | None]:
+        role = getattr(message, "type", "user")
+        content = self._base_message_text(message)
+        name = getattr(message, "name", None)
+        tool_call_id = getattr(message, "tool_call_id", None)
+        return role, content, name, tool_call_id
+
+    def _base_message_text(self, message: BaseMessage) -> str:
+        content = getattr(message, "content", "")
+        if isinstance(content, str):
+            return content
+        if not isinstance(content, list):
+            return str(content or "")
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+                continue
+            if not isinstance(item, dict):
+                continue
+            text = item.get("text")
+            if isinstance(text, str):
+                parts.append(text)
+        return "".join(parts)
+
+    def _last_assistant_text(self, messages: list[BaseMessage]) -> str | None:
+        for message in reversed(messages):
+            if getattr(message, "type", "") != "ai":
+                continue
+            content = self._base_message_text(message)
+            if content:
+                return content
+        return None
 
     def _result_text(self, result: Any) -> str | None:
         if isinstance(result, dict):
@@ -317,17 +491,9 @@ class WorkflowRuntime:
         for message in reversed(request.messages):
             if message.role != "user":
                 continue
-            content = message.content
-            if isinstance(content, str):
+            content = self._message_text(message.content)
+            if content:
                 return content
-            if isinstance(content, list):
-                parts: list[str] = []
-                for item in content:
-                    if isinstance(item, dict) and item.get("type") == "text":
-                        text = item.get("text")
-                        if isinstance(text, str):
-                            parts.append(text)
-                return "".join(parts) if parts else None
         return None
 
     @staticmethod
