@@ -1,0 +1,2 @@
+class InvalidSystemKeyError(ValueError):
+    pass

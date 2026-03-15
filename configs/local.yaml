@@ -1,0 +1,82 @@
+app:
+  name: langgraph-agent-starter
+  env: integration
+
+server:
+  host: 0.0.0.0
+  port: 8080
+  workers: 8
+
+logging:
+  dir: logs
+  level: INFO
+  max_bytes: 104857600
+  backup_count: 7
+
+nacos:
+  server_addr: 127.0.0.1:8848
+  namespace: null
+  data_id: langgraph-agent-starter.yaml
+  group: DEFAULT_GROUP
+  backend: auto
+  polling_interval_seconds: 2
+
+langgraph:
+  checkpointer:
+    backend: memory
+    redis_url: redis://127.0.0.1:6379/0
+
+langfuse:
+  enabled: false
+  host: https://us.cloud.langfuse.com
+  public_key: your-langfuse-public-key
+  secret_key: your-langfuse-secret-key
+
+api:
+  auth:
+    validate_system_key: false
+    systems:
+      - key: demo-system
+        default_llm_profile: default
+      - key: real-system
+        default_llm_profile: real_openai
+  defaults:
+    workflow: demo_hitl
+
+llm:
+  profiles:
+    default:
+      provider: mock
+      model: mock-gpt
+      timeout_s: 30
+    real_openai:
+      provider: openai_compatible
+      base_url: https://your-openai-compatible-endpoint.example.com/v1
+      api_key: your-openai-compatible-api-key
+      model: your-model-name
+      timeout_s: 30
+
+http:
+  retry:
+    attempts: 3
+    min_wait_s: 0.2
+    max_wait_s: 2.0
+
+workflow_configs:
+  defaults:
+    local_dir: configs/workflows
+    nacos:
+      enabled: true
+      group: LANGGRAPH_AGENT_STARTER_WORKFLOW
+      backend: auto
+      polling_interval_seconds: 2
+      data_id_template: "langgraph-agent-starter.workflow.{workflow}.yaml"
+  items:
+    demo_hitl:
+      local_path: configs/workflows/demo_hitl.yaml
+      nacos:
+        data_id: langgraph-agent-starter.workflow.demo_hitl.yaml
+    demo_summary:
+      local_path: configs/workflows/demo_summary.yaml
+      nacos:
+        data_id: langgraph-agent-starter.workflow.demo_summary.yaml

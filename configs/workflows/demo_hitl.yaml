@@ -1,0 +1,5 @@
+prompts:
+  draft_prefix: "[Nacos HITL Template] Please produce a release-ready draft before human review."
+
+review:
+  display_name: "human_review"

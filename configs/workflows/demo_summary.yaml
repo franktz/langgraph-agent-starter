@@ -1,0 +1,3 @@
+prompts:
+  summary_prefix: "[Nacos Summary Template Updated] Dynamic config is live:"
+  summary_suffix: "Focus on actions, risks, and owner visibility."
