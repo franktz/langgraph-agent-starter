@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -7,6 +8,7 @@ from typing import Any
 from dynamic_config.models import NacosBackendType, NacosSettings
 from dynamic_config.provider import DynamicConfigProvider
 from infrastructure.config.provider import ConfigProvider
+from infrastructure.config.provider_cleanup import close_dynamic_config_provider
 from infrastructure.logging.factory import LoggerFactory
 
 
@@ -24,6 +26,7 @@ class WorkflowConfigRegistry:
         self._providers: dict[str, DynamicConfigProvider] = {}
 
     def refresh_all(self) -> None:
+        self.close()
         items = self._workflow_items()
         for workflow_name in items:
             self._providers[workflow_name] = self._build_provider(workflow_name)
@@ -35,6 +38,11 @@ class WorkflowConfigRegistry:
         provider = self._build_provider(workflow_name)
         self._providers[workflow_name] = provider
         return provider
+
+    def close(self) -> None:
+        for provider in self._providers.values():
+            close_dynamic_config_provider(provider)
+        self._providers.clear()
 
     def _build_provider(self, workflow_name: str) -> DynamicConfigProvider:
         item = self._workflow_items().get(workflow_name, {})
@@ -81,6 +89,10 @@ class WorkflowConfigRegistry:
         if not isinstance(root_nacos, Mapping):
             root_nacos = {}
         base_nacos = self._root_config_provider.nacos_settings
+
+        forced_enabled = os.getenv("WORKFLOW_CONFIG_NACOS_ENABLED")
+        if forced_enabled is not None and forced_enabled.strip().lower() in {"0", "false", "no", "off"}:
+            return None
 
         enabled = item_nacos.get("enabled", default_nacos.get("enabled", True))
         if not enabled:

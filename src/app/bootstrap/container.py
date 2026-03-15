@@ -8,7 +8,7 @@ from application.services.workflow_catalog_service import WorkflowCatalogService
 from infrastructure.config.provider import ConfigProvider
 from infrastructure.config.workflow_registry import WorkflowConfigRegistry
 from infrastructure.http.client import AsyncHttpClient
-from infrastructure.llm.mock_client import MockChatClient
+from infrastructure.llm.gateway import LlmGateway
 from infrastructure.logging.factory import LoggerFactory, setup_logging
 from infrastructure.monitoring.langfuse import LangfuseFactory
 from infrastructure.persistence.checkpointer import build_checkpointer
@@ -33,15 +33,15 @@ def build_container() -> AppContainer:
     config_provider = ConfigProvider(local_yaml_path="configs/local.yaml")
     config_provider.load_from_env()
     logger_factory = setup_logging(config_provider)
-    http_client = AsyncHttpClient(config_provider=config_provider, logger_factory=logger_factory)
+    http_client = AsyncHttpClient(logger_factory=logger_factory)
     workflow_config_registry = WorkflowConfigRegistry(
         root_config_provider=config_provider,
         logger_factory=logger_factory,
     )
     workflow_config_registry.refresh_all()
     workflow_registry = WorkflowRegistry(workflow_config_registry=workflow_config_registry)
-    workflow_catalog = WorkflowCatalogService(config_provider=config_provider, workflow_registry=workflow_registry)
-    routing_service = RoutingService(config_provider=config_provider, workflow_registry=workflow_registry)
+    workflow_catalog = WorkflowCatalogService(workflow_registry=workflow_registry)
+    routing_service = RoutingService(workflow_registry=workflow_registry)
     langfuse_factory = LangfuseFactory(config_provider=config_provider, logger_factory=logger_factory)
     workflow_runtime = WorkflowRuntime(
         config_provider=config_provider,
@@ -49,8 +49,7 @@ def build_container() -> AppContainer:
         workflow_registry=workflow_registry,
         checkpointer_builder=build_checkpointer,
         langfuse_factory=langfuse_factory,
-        llm_client=MockChatClient(
-            config_provider=config_provider,
+        llm_gateway=LlmGateway(
             logger_factory=logger_factory,
             http_client=http_client,
         ),

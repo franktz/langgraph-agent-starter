@@ -10,7 +10,7 @@ class DummyLangfuseFactory:
         return None
 
 
-class DummyLlmClient:
+class DummyLlmGateway:
     pass
 
 
@@ -34,7 +34,7 @@ def test_runtime_langfuse_metadata_contains_filterable_fields() -> None:
         workflow_registry=WorkflowRegistry(),
         checkpointer_builder=_dummy_checkpointer_builder,
         langfuse_factory=DummyLangfuseFactory(),
-        llm_client=DummyLlmClient(),  # type: ignore[arg-type]
+        llm_gateway=DummyLlmGateway(),  # type: ignore[arg-type]
     )
 
     ctx = RequestContext(
@@ -42,7 +42,6 @@ def test_runtime_langfuse_metadata_contains_filterable_fields() -> None:
         session_id="session-123",
         user_id="user-456",
         workflow="demo_summary",
-        llm_profile="default",
     )
 
     token = request_id_var.set("req-789")
@@ -56,8 +55,10 @@ def test_runtime_langfuse_metadata_contains_filterable_fields() -> None:
     assert metadata["systemkey"] == "full-system-key-demo"
     assert metadata["session_id"] == "session-123"
     assert metadata["user_id"] == "user-456"
+    assert metadata["workflow"] == "demo_summary"
     assert metadata["langfuse_request_id"] == "req-789"
     assert metadata["langfuse_session_id"] == "session-123"
     assert metadata["langfuse_user_id"] == "user-456"
     assert "request_id:req-789" in metadata["langfuse_tags"]
     assert "systemkey:full-system-key-demo" in metadata["langfuse_tags"]
+    assert "workflow:demo_summary" in metadata["langfuse_tags"]

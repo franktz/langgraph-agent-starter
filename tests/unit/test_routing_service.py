@@ -1,14 +1,21 @@
+from domain.workflows.errors import MissingWorkflowModelError
 from application.services.routing_service import RoutingService
-from infrastructure.config.provider import ConfigProvider
 from workflows.registry import WorkflowRegistry
 
 
-def test_routing_service_resolves_workflow_and_llm_profile() -> None:
-    provider = ConfigProvider(local_yaml_path="configs/local.yaml")
-    provider.load_from_env()
-    service = RoutingService(config_provider=provider, workflow_registry=WorkflowRegistry())
+def test_routing_service_resolves_workflow() -> None:
+    service = RoutingService(workflow_registry=WorkflowRegistry())
 
-    route = service.resolve(model="demo_summary", systemkey="demo-system")
+    route = service.resolve(model="demo_summary")
 
     assert route.workflow == "demo_summary"
-    assert route.llm_profile == "default"
+
+
+def test_routing_service_requires_model() -> None:
+    service = RoutingService(workflow_registry=WorkflowRegistry())
+
+    try:
+        service.resolve(model=None)
+    except MissingWorkflowModelError:
+        return
+    raise AssertionError("expected missing model to raise")

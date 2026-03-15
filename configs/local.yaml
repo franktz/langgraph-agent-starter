@@ -1,6 +1,15 @@
+nacos:
+  server_addr: 192.168.50.62:8848
+  namespace: null
+  data_id: langgraph-agent-starter.yaml
+  group: DEFAULT_GROUP
+  backend: sdk_v2
+  polling_interval_seconds: 2
+  username: nacos
+  password: nacos
+
 app:
   name: langgraph-agent-starter
-  env: integration
 
 server:
   host: 0.0.0.0
@@ -12,16 +21,6 @@ logging:
   level: INFO
   max_bytes: 104857600
   backup_count: 7
-
-nacos:
-  server_addr: 192.168.50.62:8848
-  namespace: null
-  data_id: langgraph-agent-starter.yaml
-  group: DEFAULT_GROUP
-  backend: sdk_v2
-  polling_interval_seconds: 2
-  username: nacos
-  password: nacos
 
 langgraph:
   checkpointer:
@@ -36,33 +35,10 @@ langfuse:
 
 api:
   auth:
-    validate_system_key: false
-    systems:
-      - key: demo-system
-        default_llm_profile: default
-      - key: real-system
-        default_llm_profile: real_openai
-  defaults:
-    workflow: demo_hitl
-
-llm:
-  profiles:
-    default:
-      provider: mock
-      model: mock-gpt
-      timeout_s: 30
-    real_openai:
-      provider: openai_compatible
-      base_url: https://your-openai-compatible-endpoint.example.com/v1
-      api_key: your-openai-compatible-api-key
-      model: your-model-name
-      timeout_s: 30
-
-http:
-  retry:
-    attempts: 3
-    min_wait_s: 0.2
-    max_wait_s: 2.0
+    enabled: true
+    systemkeys:
+      - demo-system
+      - real-system
 
 workflow_configs:
   defaults:

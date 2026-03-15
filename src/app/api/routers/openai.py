@@ -6,6 +6,7 @@ from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from domain.auth.errors import InvalidSystemKeyError
+from domain.workflows.errors import MissingWorkflowModelError
 from infrastructure.http.errors import HttpClientResponseError, HttpClientTimeoutError
 from infrastructure.logging.factory import request_id_var, session_id_var, trace_id_var
 from presentation.schemas.openai import ChatCompletionRequest
@@ -77,7 +78,7 @@ async def chat_completions(
     user_id: str | None = Header(default=None, alias="user-id"),
 ):
     logger.info(
-        "[HTTP] request_id=%s session=%s -> POST /v1/chat/completions model=%s stream=%s systemkey=%s messages=%s",
+        "[HTTP] HTTP request received request_id=%s session=%s -> POST /v1/chat/completions model=%s stream=%s systemkey=%s messages=%s",
         getattr(request.state, "request_id", "-"),
         session_id or "-",
         req.model or "-",
@@ -99,10 +100,19 @@ async def chat_completions(
     except InvalidSystemKeyError as exc:
         return _error_response(
             request=request,
+            status_code=401,
+            error_message=str(exc),
+            error_type="authentication_error",
+            error_code="invalid_system_key",
+            session_id=session_id,
+        )
+    except MissingWorkflowModelError as exc:
+        return _error_response(
+            request=request,
             status_code=400,
             error_message=str(exc),
             error_type="invalid_request_error",
-            error_code="invalid_system_key",
+            error_code="missing_model",
             session_id=session_id,
         )
     except ValueError as exc:

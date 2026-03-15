@@ -6,5 +6,4 @@ from typing import TypedDict
 class DemoSummaryState(TypedDict, total=False):
     question: str
     systemkey: str
-    llm_profile: str
     summary: str

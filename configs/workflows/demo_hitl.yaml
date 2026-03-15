@@ -1,3 +1,18 @@
+llm:
+  default:
+    provider: mock
+    base_url: ""
+    apikey: ""
+    headers:
+      X-Tenant: your-tenant
+    model: mock-gpt
+    timeout: 30000
+    max_tokens: 512
+    retry:
+      attempts: 2
+      min_wait: 200
+      max_wait: 1000
+
 prompts:
   draft_prefix: "[Nacos HITL Template] Please produce a release-ready draft before human review."
 

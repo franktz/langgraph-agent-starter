@@ -7,14 +7,15 @@ between platform engineering concerns and workflow implementation.
 
 ## Highlights
 
-- FastAPI application shell with OpenAI-compatible endpoints:
+- FastAPI application shell with OpenAI-compatible endpoints
   - `GET /v1/models`
   - `POST /v1/chat/completions`
 - LangGraph-based workflow orchestration
-- Streaming and non-streaming responses
+- True streaming and non-streaming responses
 - HITL interrupt and resume support
 - Langfuse callback integration for observability
-- Root config plus per-workflow config layering
+- Root config plus per-workflow config layering, with workflow-owned LLM
+  configuration
 - Nacos-backed dynamic configuration with local YAML fallback
 - Redis or in-memory LangGraph checkpointer support
 - Reusable `dynamic_config` capability consumed from the published PyPI package

@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from infrastructure.config.provider_cleanup import close_dynamic_config_provider
+
 
 def register_lifespan(app: FastAPI) -> None:
     @asynccontextmanager
@@ -17,6 +19,8 @@ def register_lifespan(app: FastAPI) -> None:
             yield
         finally:
             await container.workflow_runtime.stop()
+            container.workflow_config_registry.close()
+            close_dynamic_config_provider(container.config_provider)
             container.langfuse_factory.flush()
             await container.http_client.aclose()
 

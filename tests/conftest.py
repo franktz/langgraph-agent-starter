@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+import os
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,6 +12,8 @@ SRC = ROOT / "src"
 
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
+
+os.environ.setdefault("WORKFLOW_CONFIG_NACOS_ENABLED", "false")
 
 
 @pytest.fixture

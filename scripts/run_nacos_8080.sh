@@ -12,4 +12,4 @@ exec uv run --python 3.12 uvicorn \
   --app-dir src \
   app.main:app \
   --host "${HOST:-127.0.0.1}" \
-  --port "${PORT:-18080}"
+  --port "${PORT:-8080}"

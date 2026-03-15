@@ -1,3 +1,18 @@
+llm:
+  default:
+    provider: mock
+    base_url: ""
+    apikey: ""
+    headers:
+      X-Tenant: your-tenant
+    model: mock-gpt
+    timeout: 30000
+    max_tokens: 512
+    retry:
+      attempts: 2
+      min_wait: 200
+      max_wait: 1000
+
 prompts:
   summary_prefix: "[Nacos Summary Template Updated] Dynamic config is live:"
   summary_suffix: "Focus on actions, risks, and owner visibility."

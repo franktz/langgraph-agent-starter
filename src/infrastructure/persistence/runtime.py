@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator
@@ -9,7 +10,9 @@ from langgraph.types import Command
 
 from domain.auth.models import RequestContext
 from infrastructure.config.provider import ConfigProvider
-from infrastructure.llm.mock_client import MockChatClient
+from infrastructure.llm.context import bind_llm_gateway
+from infrastructure.llm.streaming import bind_stream_writer
+from infrastructure.llm.gateway import LlmGateway
 from infrastructure.logging.factory import LoggerFactory, request_id_var
 from infrastructure.monitoring.langfuse import LangfuseFactory
 from infrastructure.persistence.events import RuntimeEvent
@@ -26,14 +29,14 @@ class WorkflowRuntime:
         workflow_registry: WorkflowRegistry,
         checkpointer_builder,
         langfuse_factory: LangfuseFactory,
-        llm_client: MockChatClient,
+        llm_gateway: LlmGateway,
     ) -> None:
         self._config_provider = config_provider
         self._logger = logger_factory.get_logger("infrastructure.runtime")
         self._workflow_registry = workflow_registry
         self._checkpointer_builder = checkpointer_builder
         self._langfuse_factory = langfuse_factory
-        self._llm_client = llm_client
+        self._llm_gateway = llm_gateway
         self._checkpointer_handle = None
         self._graph_cache: dict[str, Any] = {}
         self._session_state: dict[str, dict[str, Any]] = {}
@@ -52,31 +55,30 @@ class WorkflowRuntime:
         graph = self._get_graph(ctx.workflow)
         last_user = self._last_user_text(request) or ""
         self._logger.info(
-            "[FLOW] workflow=%s session=%s user=%s -> start llm_profile=%s",
+            "[FLOW] workflow=%s session=%s user=%s -> run:start",
             ctx.workflow,
             ctx.session_id,
             ctx.user_id or "-",
-            ctx.llm_profile,
             extra={
                 "workflow": ctx.workflow,
                 "session_id": ctx.session_id,
                 "user_id": ctx.user_id,
-                "llm_profile": ctx.llm_profile,
             },
         )
         resume_payload = self._resume_payload(request)
         if resume_payload is not None:
             self._logger.info(
-                "[FLOW] workflow=%s session=%s -> resume requested payload=%s",
+                "[FLOW] workflow=%s session=%s -> resume:received payload=%s",
                 ctx.workflow,
                 ctx.session_id,
                 resume_payload,
                 extra={"workflow": ctx.workflow, "session_id": ctx.session_id, "resume_payload": resume_payload},
             )
-            result = await graph.ainvoke(Command(resume=resume_payload), config=self._config(ctx))
+            with bind_llm_gateway(self._llm_gateway):
+                result = await graph.ainvoke(Command(resume=resume_payload), config=self._config(ctx))
         else:
             self._logger.info(
-                "[FLOW] workflow=%s session=%s -> request accepted question=%r",
+                "[FLOW] workflow=%s session=%s -> input:accepted question=%r",
                 ctx.workflow,
                 ctx.session_id,
                 self._preview_text(last_user),
@@ -86,15 +88,16 @@ class WorkflowRuntime:
                     "question_preview": self._preview_text(last_user),
                 },
             )
-            result = await graph.ainvoke(
-                {"question": last_user, "systemkey": ctx.systemkey, "llm_profile": ctx.llm_profile},
-                config=self._config(ctx),
-            )
+            with bind_llm_gateway(self._llm_gateway):
+                result = await graph.ainvoke(
+                    {"question": last_user, "systemkey": ctx.systemkey},
+                    config=self._config(ctx),
+                )
         if isinstance(result, dict) and result.get("__interrupt__") is not None:
             interrupt_payload = self._normalize_interrupt(result.get("__interrupt__"))
             self._session_state[ctx.session_id] = {"workflow": ctx.workflow, "interrupt": interrupt_payload}
             self._logger.info(
-                "[HITL] workflow=%s session=%s -> interrupted waiting_human_input payload=%s",
+                "[HITL] workflow=%s session=%s -> interrupt:waiting_human_input payload=%s",
                 ctx.workflow,
                 ctx.session_id,
                 interrupt_payload,
@@ -124,7 +127,7 @@ class WorkflowRuntime:
             }
         self._session_state.pop(ctx.session_id, None)
         self._logger.info(
-            "[FLOW] workflow=%s session=%s -> completed output=%r",
+            "[FLOW] workflow=%s session=%s -> run:completed output=%r",
             ctx.workflow,
             ctx.session_id,
             self._preview_text(self._result_text(result)),
@@ -140,33 +143,103 @@ class WorkflowRuntime:
     async def stream(
         self, *, request: ChatCompletionRequest, ctx: RequestContext, completion_id: str, created: int
     ) -> AsyncIterator[str]:
-        result = await self.run_once(request=request, ctx=ctx)
+        queue: asyncio.Queue[str] = asyncio.Queue()
+        streamed_chunk_count = 0
+        streamed_char_count = 0
+
+        async def _write_token(token: str) -> None:
+            await queue.put(token)
+
+        async def _run_with_stream_writer() -> dict[str, Any]:
+            with bind_stream_writer(_write_token):
+                return await self.run_once(request=request, ctx=ctx)
+
+        task = asyncio.create_task(_run_with_stream_writer())
+        self._logger.info(
+            "[STREAM] workflow=%s session=%s -> stream:open",
+            ctx.workflow,
+            ctx.session_id,
+            extra={"workflow": ctx.workflow, "session_id": ctx.session_id},
+        )
+        try:
+            while True:
+                if task.done() and queue.empty():
+                    break
+                try:
+                    token = await asyncio.wait_for(queue.get(), timeout=0.05)
+                except asyncio.TimeoutError:
+                    continue
+                streamed_chunk_count += 1
+                streamed_char_count += len(token)
+                if streamed_chunk_count == 1:
+                    self._logger.info(
+                        "[STREAM] workflow=%s session=%s -> stream:first_delta chunk=%r",
+                        ctx.workflow,
+                        ctx.session_id,
+                        self._preview_text(token, limit=40),
+                        extra={
+                            "workflow": ctx.workflow,
+                            "session_id": ctx.session_id,
+                            "stream_chunk_preview": self._preview_text(token, limit=40),
+                        },
+                    )
+                event = RuntimeEvent(type="content", payload={"content": token})
+                yield f"data: {json.dumps(event.to_chunk(completion_id=completion_id, created=created, workflow=ctx.workflow, session_id=ctx.session_id, user_id=ctx.user_id), ensure_ascii=False)}\n\n"
+            result = await task
+        except Exception:
+            if not task.done():
+                task.cancel()
+            raise
+
         message = result["message"]
         if message.get("tool_calls"):
             self._logger.info(
-                "[STREAM] workflow=%s session=%s -> emit tool_calls",
+                "[STREAM] workflow=%s session=%s -> stream:interrupt tool_calls chunks=%s chars=%s",
                 ctx.workflow,
                 ctx.session_id,
-                extra={"workflow": ctx.workflow, "session_id": ctx.session_id},
+                streamed_chunk_count,
+                streamed_char_count,
+                extra={
+                    "workflow": ctx.workflow,
+                    "session_id": ctx.session_id,
+                    "stream_chunk_count": streamed_chunk_count,
+                    "stream_char_count": streamed_char_count,
+                },
             )
             event = RuntimeEvent(type="tool_calls", payload={"tool_calls": message["tool_calls"]})
             yield f"data: {json.dumps(event.to_chunk(completion_id=completion_id, created=created, workflow=ctx.workflow, session_id=ctx.session_id, user_id=ctx.user_id), ensure_ascii=False)}\n\n"
             yield f"data: {json.dumps({'id': completion_id, 'object': 'chat.completion.chunk', 'created': created, 'model': ctx.workflow, 'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'tool_calls'}], 'session_id': ctx.session_id, 'user_id': ctx.user_id}, ensure_ascii=False)}\n\n"
             return
         content = str(message.get("content") or "")
+        if streamed_chunk_count == 0 and content:
+            self._logger.info(
+                "[STREAM] workflow=%s session=%s -> stream:fallback_single_chunk content=%r",
+                ctx.workflow,
+                ctx.session_id,
+                self._preview_text(content),
+                extra={
+                    "workflow": ctx.workflow,
+                    "session_id": ctx.session_id,
+                    "content_preview": self._preview_text(content),
+                },
+            )
+            event = RuntimeEvent(type="content", payload={"content": content})
+            yield f"data: {json.dumps(event.to_chunk(completion_id=completion_id, created=created, workflow=ctx.workflow, session_id=ctx.session_id, user_id=ctx.user_id), ensure_ascii=False)}\n\n"
+            streamed_chunk_count = 1
+            streamed_char_count = len(content)
         self._logger.info(
-            "[STREAM] workflow=%s session=%s -> emit content=%r",
+            "[STREAM] workflow=%s session=%s -> stream:finish finish_reason=stop chunks=%s chars=%s",
             ctx.workflow,
             ctx.session_id,
-            self._preview_text(content),
+            streamed_chunk_count,
+            streamed_char_count,
             extra={
                 "workflow": ctx.workflow,
                 "session_id": ctx.session_id,
-                "content_preview": self._preview_text(content),
+                "stream_chunk_count": streamed_chunk_count,
+                "stream_char_count": streamed_char_count,
             },
         )
-        event = RuntimeEvent(type="content", payload={"content": content})
-        yield f"data: {json.dumps(event.to_chunk(completion_id=completion_id, created=created, workflow=ctx.workflow, session_id=ctx.session_id, user_id=ctx.user_id), ensure_ascii=False)}\n\n"
         yield f"data: {json.dumps({'id': completion_id, 'object': 'chat.completion.chunk', 'created': created, 'model': ctx.workflow, 'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'stop'}], 'session_id': ctx.session_id, 'user_id': ctx.user_id}, ensure_ascii=False)}\n\n"
 
     def _get_graph(self, workflow: str):
@@ -176,7 +249,6 @@ class WorkflowRuntime:
         graph = self._workflow_registry.build(
             workflow,
             checkpointer=self._checkpointer_handle.saver if self._checkpointer_handle else None,
-            llm_client=self._llm_client,
         )
         self._graph_cache[workflow] = graph
         return graph
@@ -186,7 +258,6 @@ class WorkflowRuntime:
         trace_tags = [
             f"workflow:{ctx.workflow}",
             f"systemkey:{ctx.systemkey}",
-            f"llm_profile:{ctx.llm_profile}",
             f"request_id:{request_id}",
         ]
         config: dict[str, Any] = {
@@ -197,7 +268,6 @@ class WorkflowRuntime:
                 "session_id": ctx.session_id,
                 "user_id": ctx.user_id,
                 "workflow": ctx.workflow,
-                "llm_profile": ctx.llm_profile,
                 "langfuse_request_id": request_id,
                 "langfuse_session_id": ctx.session_id,
                 "langfuse_user_id": ctx.user_id,

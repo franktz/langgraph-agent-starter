@@ -1,6 +1,6 @@
 # Design Guide
 
-[中文版本](design.zh-CN.md)
+[中文版](design.zh-CN.md)
 
 ## Goals
 
@@ -36,7 +36,6 @@ layer invokes workflows through the registry and runtime.
 The root config owns platform-wide behavior:
 
 - API defaults
-- `systemkey -> llm profile`
 - `model -> workflow`
 - logging, HTTP, Langfuse, and checkpointer setup
 - workflow config location and Nacos mapping
@@ -45,6 +44,7 @@ The root config owns platform-wide behavior:
 
 Each workflow can have its own config file for:
 
+- LLM provider configuration owned by that workflow
 - prompt fragments
 - business thresholds
 - feature flags
@@ -94,12 +94,17 @@ Workflow nodes do not look up global config directly. Instead,
 `WorkflowConfigRegistry` creates one config provider per workflow and injects
 it during graph construction.
 
+LLM execution is bound later by the runtime through the shared `LlmGateway`.
+That means graph builders do not receive an `llm_client`, and nodes read the
+workflow-local LLM config they need during execution. The current demo keeps
+that upstream model config under `llm.default`.
+
 Benefits:
 
 - each workflow gets isolated config
 - adding a new workflow only requires a new config file and mapping
 - once config changes are refreshed, subsequent reads see the updated values
-- nodes do not need hard-coded global config paths
+- nodes do not need hard-coded global config paths or a fixed LLM implementation
 
 ## Runtime and Observability
 
@@ -109,6 +114,7 @@ Benefits:
 - checkpointer injection
 - LangGraph execution
 - converting workflow output into stream / non-stream OpenAI-style payloads
+- forwarding node-level LLM token deltas to true SSE streaming responses
 - HITL interrupt and resume handling
 
 ### Langfuse Trace Conventions
@@ -122,11 +128,10 @@ Runtime metadata includes:
   - `session_id`
   - `user_id`
   - `workflow`
-  - `llm_profile`
 - tags:
   - `workflow:<workflow>`
   - `systemkey:<systemkey>`
-  - `llm_profile:<profile>`
+  - `request_id:<request_id>`
 
 This makes it easy to filter traces in Langfuse by session, user, workflow, or
 business system.

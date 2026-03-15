@@ -1,6 +1,6 @@
 # cURL Examples
 
-[中文版本](curl_examples.zh-CN.md)
+[中文版](curl_examples.zh-CN.md)
 
 These examples use Bash syntax and target the two built-in demo workflows:
 
@@ -66,7 +66,8 @@ curl -sS -X POST "$BASE_URL/v1/chat/completions" \
 
 ## Resume `demo_hitl` With Human Confirmation
 
-Resume must reuse the same `session-id`. Put the human-confirmed content in the last `tool` message.
+Resume must reuse the same `session-id`. Put the human-confirmed content in the
+last `tool` message.
 
 Replace `call_xxx` with the `tool_calls[0].id` returned by the first request.
 
@@ -108,7 +109,8 @@ curl -sS -X POST "$BASE_URL/v1/chat/completions" \
 
 ## Stream `demo_hitl`
 
-The streaming response emits `tool_calls` and finishes with `data: [DONE]`.
+The streaming response emits real draft content deltas first, then
+`tool_calls`, and finally `data: [DONE]`.
 
 ```bash
 curl -N -sS -X POST "$BASE_URL/v1/chat/completions" \
@@ -131,6 +133,8 @@ curl -N -sS -X POST "$BASE_URL/v1/chat/completions" \
 ## Notes
 
 - `model` maps directly to a workflow name.
-- `SYSTEMKEY` selects the business system and its LLM profile.
+- `SYSTEMKEY` selects the business system scope. The current demo keeps its
+  upstream model config under `llm.default` inside each workflow config.
 - This repo currently includes `demo_hitl` and `demo_summary`.
-- If you only want to test HITL resume behavior, keep the same `session-id` across both requests.
+- If you only want to test HITL resume behavior, keep the same `session-id`
+  across both requests.

@@ -3,7 +3,9 @@ from __future__ import annotations
 import logging
 
 from dynamic_config.provider import DynamicConfigProvider
-from infrastructure.llm.mock_client import ChatMessage
+from infrastructure.llm.context import get_llm_gateway
+from infrastructure.llm.gateway import ChatMessage
+from workflows.common.llms import resolve_workflow_llm
 from workflows.common.log_utils import config_metadata, preview_text
 
 logger = logging.getLogger("workflows.demo_hitl.generate")
@@ -13,33 +15,36 @@ async def generate_draft(
     state: dict,
     *,
     config,
-    llm_client,
     workflow_config: DynamicConfigProvider | None,
 ) -> dict[str, str]:
     metadata = config_metadata(config)
     systemkey = str(state.get("systemkey", "default-system"))
-    llm_profile = str(state.get("llm_profile", "default"))
+    llm = resolve_workflow_llm(
+        workflow_config=workflow_config,
+    )
     question = str(state.get("question", ""))
     prompt_prefix = ""
     if workflow_config is not None:
         prompt_prefix = str(workflow_config.get("prompts.draft_prefix", "") or "")
     effective_question = " ".join(part for part in [prompt_prefix, question] if part)
     logger.info(
-        "[NODE] workflow=demo_hitl session=%s -> generate_draft:start question=%r profile=%s",
+        "[NODE] workflow=demo_hitl session=%s -> generate_draft:start question=%r llm=%s",
         metadata.get("session_id", "-"),
         preview_text(question),
-        llm_profile,
+        llm.name,
         extra={
             "session_id": metadata.get("session_id", "-"),
             "user_id": metadata.get("user_id"),
             "systemkey": systemkey,
-            "llm_profile": llm_profile,
+            "llm_name": llm.name,
             "question_preview": preview_text(question),
         },
     )
     chunks: list[str] = []
-    async for token in llm_client.stream_chat(
-        model=llm_profile,
+    llm_gateway = get_llm_gateway()
+    async for token in llm_gateway.stream_chat(
+        llm_name=llm.name,
+        llm_config=llm.config,
         systemkey=systemkey,
         messages=[ChatMessage(role="user", content=effective_question)],
     ):

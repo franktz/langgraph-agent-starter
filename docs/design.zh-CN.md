@@ -4,16 +4,16 @@
 
 ## 目标
 
-这个脚手架主要面向两类协作角色：
+这个脚手架面向两类角色协作：
 
 - 平台工程师
-  负责 API、配置、日志、监控、运行时与外部集成
+  负责 API、配置、日志、监控、运行时和集成能力
 - workflow 工程师
-  负责 workflow 图、state、node、分支和数据处理
+  负责 workflow 图、state、node、分支和数据组织
 
-核心目标是把协作边界做清楚，让平台侧和 workflow 侧可以相对独立演进，减少互相修改带来的摩擦。
+核心目标是把协作边界显式化，让平台侧与 workflow 侧尽量低耦合演进。
 
-## 核心分层
+## 核心分离
 
 ### 平台侧
 
@@ -25,28 +25,28 @@
 
 - `src/workflows/`
 
-workflow 实现不直接依赖 FastAPI 组合根，平台侧通过 registry 和 runtime 调用 workflow。
+Workflow 代码不依赖 FastAPI 组合根，平台层通过 registry 和 runtime 调用 workflow。
 
 ## 配置分层
 
 ### 根配置
 
-根配置负责平台级能力，例如：
+根配置负责平台级行为：
 
-- API 默认行为
-- `systemkey -> llm profile`
+- API 默认值
 - `model -> workflow`
-- 日志、HTTP、Langfuse、checkpointer
-- workflow 配置文件位置和 Nacos 映射关系
+- logging、HTTP、Langfuse、checkpointer 初始化
+- workflow 配置位置和 Nacos 映射
 
-### 图级配置
+### Workflow 配置
 
-每个 workflow 都可以有自己的独立配置文件，用来承载：
+每个 workflow 都可以有自己的配置文件，用来承载：
 
+- 该 workflow 自己拥有的 LLM 提供方配置
 - prompt 片段
 - 业务阈值
-- 功能开关
-- 图级外部依赖配置
+- feature flag
+- workflow 自己依赖的外部系统配置
 
 当前示例：
 
@@ -55,9 +55,9 @@ workflow 实现不直接依赖 FastAPI 组合根，平台侧通过 registry 和 
 
 ## 动态配置复用
 
-`langgraph-agent-starter` 通过 PyPI 包 `dynamic-config-nacos` 复用动态配置能力。
+`langgraph-agent-starter` 直接复用了已经发布到 PyPI 的 `dynamic-config-nacos` 动态配置能力。
 
-它对外暴露的核心类型包括：
+组件对外暴露：
 
 - `DynamicConfigProvider`
 - `NacosSettings`
@@ -76,39 +76,41 @@ workflow 实现不直接依赖 FastAPI 组合根，平台侧通过 registry 和 
 策略说明：
 
 - `http`
-  通过 Nacos OpenAPI + 轮询实现动态更新
+  使用 Nacos OpenAPI 轮询刷新。
 - `sdk_v2`
-  强制走旧版 Python SDK
+  强制走旧版 Python SDK。
 - `sdk_v3`
-  强制走新版 Python SDK
+  强制走新版 Python SDK。
 - `auto`
-  先探测 Nacos 主版本，再优先尝试匹配的 SDK，失败后回退到 `http`
+  先探测 Nacos 大版本，再优先选择匹配 SDK，必要时回退到 `http`。
 
 ## Workflow 配置注入
 
-workflow node 不直接自行读取全局配置，而是由 `WorkflowConfigRegistry`
-在构图时为每张图创建独立的配置 provider 并注入。
+Workflow node 不直接读取全局配置。`WorkflowConfigRegistry` 会为每个 workflow 创建独立的配置 provider，并在构图时注入进去。
 
-这样做的好处是：
+LLM 的真正执行能力则由运行时通过共享的 `LlmGateway` 绑定到当前执行上下文。因此 graph build 阶段不再传 `llm_client`，node 在执行时读取 workflow 自己的 LLM 配置即可。当前 demo 统一使用 `llm.default` 这份上游模型配置。
 
-- 每张图拥有独立配置
-- 新增 workflow 只需要加配置文件和映射
-- 配置更新后，后续读取会拿到新值
-- node 里不需要硬编码全局配置路径
+这样做的好处：
 
-## 运行时与观测
+- 每个 workflow 都有隔离的配置空间
+- 新增 workflow 只需要增加配置文件和映射
+- 配置刷新后，后续执行可以读到最新值
+- node 不需要写死全局配置路径或具体 LLM 实现
 
-`WorkflowRuntime` 统一负责：
+## Runtime 与可观测性
 
-- graph 构建与缓存
-- checkpointer 注入
-- LangGraph 执行
-- 将结果转换为 OpenAI 风格的 stream / non-stream 响应
-- HITL interrupt / resume
+`WorkflowRuntime` 负责：
+
+- 构图和缓存 graph
+- 注入 checkpointer
+- 执行 LangGraph
+- 把 workflow 输出转换成 stream / non-stream 的 OpenAI 风格响应
+- 把 node 级别的 LLM token 增量转发成真正的 SSE 流式输出
+- 处理 HITL interrupt 与 resume
 
 ### Langfuse Trace 约定
 
-运行时会写入：
+运行时 metadata 包含：
 
 - 顶层 `session_id`
 - 顶层 `user_id`
@@ -117,27 +119,25 @@ workflow node 不直接自行读取全局配置，而是由 `WorkflowConfigRegis
   - `session_id`
   - `user_id`
   - `workflow`
-  - `llm_profile`
 - tags:
   - `workflow:<workflow>`
   - `systemkey:<systemkey>`
-  - `llm_profile:<profile>`
+  - `request_id:<request_id>`
 
-这样在 Langfuse 中可以更方便地按会话、用户、workflow 或业务系统筛选。
+这样可以很方便地在 Langfuse 里按 session、user、workflow、业务系统过滤 trace。
 
 ### `systemkey` 命名约定
 
-调用侧主字段统一为 `systemkey`。
-Langfuse 侧的 metadata、tags 和 workflow state 也统一使用 `systemkey`。
+API 层使用调用方字段名 `systemkey`，Langfuse metadata、tags 以及 workflow state 里也统一使用 `systemkey`。
 
 ## 真实集成状态
 
-这套脚手架已经验证过以下真实集成能力：
+这个脚手架已经验证过以下真实集成链路：
 
 - Nacos 配置拉取成功
-- 图级动态配置更新成功
+- workflow 级动态配置刷新成功
 - Redis checkpointer 可用
 - HITL resume 可用
-- Langfuse 鉴权和 trace 上报成功
+- Langfuse 鉴权和 trace 上报可用
 
-最终模型是否可用，仍然取决于你配置的上游模型服务和凭证。
+最终的大模型调用成功与否，仍取决于你在配置里填写的上游模型服务和凭证是否可用。

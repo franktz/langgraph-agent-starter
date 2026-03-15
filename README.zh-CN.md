@@ -2,24 +2,23 @@
 
 [English](README.md)
 
-## API Examples
+这是一个面向平台工程与 workflow 开发协作的 LangGraph 通用脚手架，重点是把平台侧通用能力和图实现尽量解耦。
+
+## API 示例
 
 - [cURL 示例](docs/curl_examples.zh-CN.md)
 - [cURL Examples](docs/curl_examples.md)
 
-这是一个面向平台工程与 workflow 开发协作的 LangGraph 通用脚手架，
-重点是把平台侧通用能力和图实现尽量解耦。
-
 ## 核心能力
 
-- 基于 FastAPI 提供 OpenAI 兼容接口：
+- 基于 FastAPI 提供 OpenAI 兼容接口
   - `GET /v1/models`
   - `POST /v1/chat/completions`
 - 基于 LangGraph 编排 workflow
-- 支持 stream / non-stream 两种响应模式
+- 支持真流式与 non-stream 两种响应模式
 - 支持 HITL 中断与恢复
 - 通过 Langfuse CallbackHandler 接入观测
-- 支持根配置与 workflow 配置分层
+- 支持根配置与 workflow 配置分层，LLM 定义由 workflow 独立管理
 - 支持 Nacos 动态配置与本地 YAML fallback
 - 支持 Redis / memory 两种 LangGraph checkpointer
 - 通过 PyPI 包 `dynamic-config-nacos` 复用动态配置能力

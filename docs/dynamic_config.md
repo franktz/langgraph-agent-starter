@@ -50,8 +50,8 @@ provider.load_initial(
     )
 )
 
-timeout_s = provider.get("http.timeout_s", 5)
-retry_attempts = provider.conf.http.retry.attempts.value
+timeout_ms = provider.get("service.timeout", 30000)
+retry_attempts = provider.get("service.retry.attempts", 2)
 ```
 
 ## Env Example

@@ -7,12 +7,11 @@ from workflows.demo_summary.nodes.summarize import summarize
 from workflows.demo_summary.state import DemoSummaryState
 
 
-def build(*, checkpointer=None, llm_client=None, workflow_config: DynamicConfigProvider | None = None):
+def build(*, checkpointer=None, workflow_config: DynamicConfigProvider | None = None):
     async def summarize_node(state, config):
         return await summarize(
             state,
             config=config,
-            llm_client=llm_client,
             workflow_config=workflow_config,
         )
 

@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-from infrastructure.config.provider import ConfigProvider
 from workflows.registry import WorkflowRegistry
 
 
 class WorkflowCatalogService:
-    def __init__(self, *, config_provider: ConfigProvider, workflow_registry: WorkflowRegistry):
-        self._config_provider = config_provider
+    def __init__(self, *, workflow_registry: WorkflowRegistry):
         self._workflow_registry = workflow_registry
-
-    def default_workflow(self) -> str:
-        return str(self._config_provider.get("api.defaults.workflow", "demo_hitl"))
 
     def list_models(self) -> list[dict[str, str]]:
         return [

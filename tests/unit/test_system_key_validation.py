@@ -16,10 +16,12 @@ class DummyRuntime:
 def test_system_key_is_not_validated_by_default() -> None:
     config_provider = ConfigProvider(local_yaml_path="configs/local.yaml")
     config_provider.load_from_env()
+    config_provider._raw["api"]["auth"]["enabled"] = False  # type: ignore[attr-defined]
+    config_provider._conf = type(config_provider.conf)(config_provider._raw)  # type: ignore[attr-defined]
     logger_factory = setup_logging(config_provider)
     registry = WorkflowRegistry()
-    catalog = WorkflowCatalogService(config_provider=config_provider, workflow_registry=registry)
-    routing_service = RoutingService(config_provider=config_provider, workflow_registry=registry)
+    catalog = WorkflowCatalogService(workflow_registry=registry)
+    routing_service = RoutingService(workflow_registry=registry)
     service = ChatCompletionService(
         config_provider=config_provider,
         logger_factory=logger_factory,
@@ -42,12 +44,13 @@ def test_system_key_validation_raises_when_enabled() -> None:
     config_provider.load_initial(
         None
     )
-    config_provider._raw["api"]["auth"]["validate_system_key"] = True  # type: ignore[attr-defined]
+    config_provider._raw["api"]["auth"]["enabled"] = True  # type: ignore[attr-defined]
+    config_provider._raw["api"]["auth"]["systemkeys"] = ["demo-system"]  # type: ignore[attr-defined]
     config_provider._conf = type(config_provider.conf)(config_provider._raw)  # type: ignore[attr-defined]
     logger_factory = setup_logging(config_provider)
     registry = WorkflowRegistry()
-    catalog = WorkflowCatalogService(config_provider=config_provider, workflow_registry=registry)
-    routing_service = RoutingService(config_provider=config_provider, workflow_registry=registry)
+    catalog = WorkflowCatalogService(workflow_registry=registry)
+    routing_service = RoutingService(workflow_registry=registry)
     service = ChatCompletionService(
         config_provider=config_provider,
         logger_factory=logger_factory,

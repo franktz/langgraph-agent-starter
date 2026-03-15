@@ -24,14 +24,13 @@ class WorkflowRegistry:
             ),
         }
 
-    def build(self, name: str, *, checkpointer=None, llm_client=None):
+    def build(self, name: str, *, checkpointer=None):
         spec = self._specs[name]
         workflow_config = None
         if self._workflow_config_registry is not None:
             workflow_config = self._workflow_config_registry.get_provider(name)
         return spec.builder(
             checkpointer=checkpointer,
-            llm_client=llm_client,
             workflow_config=workflow_config,
         )
 

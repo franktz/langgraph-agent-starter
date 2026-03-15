@@ -8,12 +8,11 @@ from workflows.demo_hitl.nodes.review import human_review
 from workflows.demo_hitl.state import DemoHitlState
 
 
-def build(*, checkpointer=None, llm_client=None, workflow_config: DynamicConfigProvider | None = None):
+def build(*, checkpointer=None, workflow_config: DynamicConfigProvider | None = None):
     async def generate_node(state, config):
         return await generate_draft(
             state,
             config=config,
-            llm_client=llm_client,
             workflow_config=workflow_config,
         )
 

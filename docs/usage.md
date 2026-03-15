@@ -1,6 +1,6 @@
 # Usage Guide
 
-[中文版本](usage.zh-CN.md)
+[中文版](usage.zh-CN.md)
 
 ## API
 
@@ -22,8 +22,11 @@
 
 - `model -> workflow`
   The OpenAI-style `model` field selects which workflow graph to run.
-- `systemkey -> llm profile`
-  The request header `systemkey` selects the current business-facing LLM profile.
+  It is required; missing `model` returns `400 missing_model`.
+- `systemkey -> business scope`
+  The request header `systemkey` is used for caller identity, business
+  isolation, and optional validation. It no longer selects the LLM
+  configuration.
 
 ## Chat Completion Behavior
 
@@ -36,8 +39,10 @@
 ### Stream
 
 - the first chunk returns `role=assistant`
-- regular workflows stream content chunks and finish with `finish_reason=stop`
-- HITL workflows stream `tool_calls` and finish with `finish_reason=tool_calls`
+- regular workflows stream real content deltas and finish with
+  `finish_reason=stop`
+- HITL workflows can stream draft content first, then emit `tool_calls`, and
+  finish with `finish_reason=tool_calls`
 - the stream terminates with `data: [DONE]`
 
 ### HITL Resume
@@ -55,9 +60,8 @@ To resume a HITL flow:
 - `server.host`
 - `server.port`
 - `server.workers`
-- `api.auth.systems`
-- `api.defaults.workflow`
-- `llm.profiles`
+- `api.auth.enabled`
+- `api.auth.systemkeys`
 - `langgraph.checkpointer`
 - `langfuse`
 - `workflow_configs`
@@ -87,23 +91,34 @@ workflow_configs:
 ```yaml
 api:
   auth:
-    systems:
-      - key: reporting-system
-        default_llm_profile: reporting-profile
+    enabled: true
+    systemkeys:
+      - reporting-system
 ```
 
-Then add the matching LLM profile:
+Then add the workflow-local default LLM definition:
 
 ```yaml
 llm:
-  profiles:
-    reporting-profile:
-      provider: openai_compatible
-      base_url: https://example.com/v1
-      api_key: your-key
-      model: your-model
-      timeout_s: 30
+  default:
+    provider: openai_compatible
+    base_url: https://example.com/v1
+    apikey: your-key
+    headers:
+      X-Tenant: your-tenant
+    model: your-model
+    max_tokens: 2048
+    timeout: 30000
+    retry:
+      attempts: 2
+      min_wait: 200
+      max_wait: 1000
 ```
+
+`timeout`, `retry.min_wait`, and `retry.max_wait` all use milliseconds. If
+`retry` is omitted, that upstream LLM call is not retried. `headers` is
+optional and only adds extra request headers when configured. The runtime still
+sends `Content-Type: application/json` by default.
 
 ### Switch the Checkpointer Backend
 
@@ -125,8 +140,9 @@ Trace metadata automatically includes:
 
 - top-level `session_id`
 - top-level `user_id`
-- metadata fields such as `systemkey`, `workflow`, and `llm_profile`
-- tags such as `workflow:<workflow>`, `systemkey:<systemkey>`, and `llm_profile:<profile>`
+- metadata fields such as `systemkey` and `workflow`
+- tags such as `workflow:<workflow>`, `systemkey:<systemkey>`, and
+  `request_id:<request_id>`
 
 ### Push Nacos Config
 
@@ -186,6 +202,17 @@ Create:
 ```python
 prompt_prefix = workflow_config.get("prompts.draft_prefix", "")
 ```
+
+### Resolve LLM In Nodes
+
+```python
+llm = resolve_workflow_llm(
+    workflow_config=workflow_config,
+)
+```
+
+`llm.name` will be `default`, and `llm.config` is the full config for that
+model.
 
 ### Register the Workflow
 

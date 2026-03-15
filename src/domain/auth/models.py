@@ -9,4 +9,3 @@ class RequestContext:
     session_id: str
     user_id: str | None
     workflow: str
-    llm_profile: str = "default"

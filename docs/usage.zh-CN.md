@@ -21,9 +21,11 @@
 ## 路由规则
 
 - `model -> workflow`
-  OpenAI 风格请求体中的 `model` 决定要调用哪张 workflow 图
-- `systemkey -> llm profile`
-  请求头中的 `systemkey` 决定当前业务系统使用哪个 LLM profile
+  OpenAI 风格请求体里的 `model` 决定要调用哪个 workflow 图
+  `model` 为必填，缺失时返回 `400 missing_model`
+- `systemkey -> business scope`
+  请求头里的 `systemkey` 用于调用方身份、业务隔离与可选校验，
+  不再决定具体使用哪个 LLM 配置
 
 ## Chat Completion 行为
 
@@ -36,8 +38,8 @@
 ### Stream
 
 - 第一段 chunk 返回 `role=assistant`
-- 普通 workflow 持续返回内容 chunk，并以 `finish_reason=stop` 结束
-- HITL workflow 返回 `tool_calls` chunk，并以 `finish_reason=tool_calls` 结束
+- 普通 workflow 会按真实内容增量持续返回 chunk，并以 `finish_reason=stop` 结束
+- HITL workflow 可以先流式返回 draft 内容，再发出 `tool_calls` chunk，并以 `finish_reason=tool_calls` 结束
 - 流结束时返回 `data: [DONE]`
 
 ### HITL Resume
@@ -55,9 +57,8 @@
 - `server.host`
 - `server.port`
 - `server.workers`
-- `api.auth.systems`
-- `api.defaults.workflow`
-- `llm.profiles`
+- `api.auth.enabled`
+- `api.auth.systemkeys`
 - `langgraph.checkpointer`
 - `langfuse`
 - `workflow_configs`
@@ -87,23 +88,31 @@ workflow_configs:
 ```yaml
 api:
   auth:
-    systems:
-      - key: reporting-system
-        default_llm_profile: reporting-profile
+    enabled: true
+    systemkeys:
+      - reporting-system
 ```
 
-然后补对应的 LLM profile：
+然后在 workflow 自己的配置里补充默认 LLM 定义：
 
 ```yaml
 llm:
-  profiles:
-    reporting-profile:
-      provider: openai_compatible
-      base_url: https://example.com/v1
-      api_key: your-key
-      model: your-model
-      timeout_s: 30
+  default:
+    provider: openai_compatible
+    base_url: https://example.com/v1
+    apikey: your-key
+    headers:
+      X-Tenant: your-tenant
+    model: your-model
+    max_tokens: 2048
+    timeout: 30000
+    retry:
+      attempts: 2
+      min_wait: 200
+      max_wait: 1000
 ```
+
+`timeout`、`retry.min_wait` 和 `retry.max_wait` 都使用毫秒单位。如果不配置 `retry`，这次上游 LLM 调用就不会重试。`headers` 是可选扩展头，只有配置时才会额外透传；运行时仍会默认带上 `Content-Type: application/json`。
 
 ### 切换 Checkpointer 后端
 
@@ -125,12 +134,12 @@ trace 会自动带上：
 
 - 顶层 `session_id`
 - 顶层 `user_id`
-- metadata 中的 `systemkey`、`workflow`、`llm_profile`
-- tags 中的 `workflow:<workflow>`、`systemkey:<systemkey>`、`llm_profile:<profile>`
+- metadata 中的 `systemkey`、`workflow`
+- tags 中的 `workflow:<workflow>`、`systemkey:<systemkey>`、`request_id:<request_id>`
 
 ### 推送 Nacos 配置
 
-仓库提供示例脚本：
+示例脚本：
 
 - `scripts/push_nacos_configs.sh`
 
@@ -176,9 +185,9 @@ HOST=0.0.0.0 PORT=18080 WORKERS=4 bash scripts/run.sh
 - `src/workflows/<name>/state.py`
 - `src/workflows/<name>/nodes/`
 
-### 增加图级配置
+### 新增图级配置
 
-- 新增 `configs/workflows/<name>.yaml`
+- 新建 `configs/workflows/<name>.yaml`
 - 在根配置的 `workflow_configs.items` 中注册
 
 ### 在 Node 中读取图配置
@@ -187,13 +196,23 @@ HOST=0.0.0.0 PORT=18080 WORKERS=4 bash scripts/run.sh
 prompt_prefix = workflow_config.get("prompts.draft_prefix", "")
 ```
 
+### 在 Node 中选择 LLM
+
+```python
+llm = resolve_workflow_llm(
+    workflow_config=workflow_config,
+)
+```
+
+解析结果里的 `llm.name` 固定为 `default`，`llm.config` 则是该模型的完整配置。
+
 ### 注册 Workflow
 
 在 `src/workflows/registry.py` 中注册新图。
 
 ### 暴露给调用方
 
-调用方通过 OpenAI 风格 `model` 选择 workflow。
+调用方通过 OpenAI 风格的 `model` 选择 workflow。
 如果某张图只服务部分系统，再结合 `systemkey` 做业务隔离。
 
 ## Nacos Backend 选项
@@ -207,7 +226,7 @@ prompt_prefix = workflow_config.get("prompts.draft_prefix", "")
 
 ## 动态配置复用
 
-其他项目可以直接复用动态配置能力：
+其他项目也可以直接复用动态配置能力：
 
 ```python
 from dynamic_config import DynamicConfigProvider, NacosSettings
