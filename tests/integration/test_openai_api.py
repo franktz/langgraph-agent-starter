@@ -20,7 +20,7 @@ def test_chat_completions_non_stream_summary_returns_text(client: TestClient) ->
             "model": "demo_summary",
             "messages": [{"role": "user", "content": "Summarize the launch checklist"}],
         },
-        headers={"systemKey": "demo-system", "session-id": "summary-session", "user-id": "u1"},
+        headers={"systemkey": "demo-system", "session-id": "summary-session", "user-id": "u1"},
     )
 
     assert response.status_code == 200
@@ -42,7 +42,7 @@ def test_chat_completions_stream_hitl_returns_tool_call(client: TestClient) -> N
             "messages": [{"role": "user", "content": "Write a release note"}],
             "stream": True,
         },
-        headers={"systemKey": "demo-system", "session-id": "hitl-session", "user-id": "u2"},
+        headers={"systemkey": "demo-system", "session-id": "hitl-session", "user-id": "u2"},
     ) as response:
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/event-stream")
@@ -69,7 +69,7 @@ def test_chat_completions_hitl_resume_returns_final_content(client: TestClient) 
             "model": "demo_hitl",
             "messages": [{"role": "user", "content": "Write a release note"}],
         },
-        headers={"systemKey": "demo-system", "session-id": "resume-session", "user-id": "u3"},
+        headers={"systemkey": "demo-system", "session-id": "resume-session", "user-id": "u3"},
     )
     assert first.status_code == 200
     tool_call = first.json()["choices"][0]["message"]["tool_calls"][0]
@@ -97,7 +97,7 @@ def test_chat_completions_hitl_resume_returns_final_content(client: TestClient) 
                 },
             ],
         },
-        headers={"systemKey": "demo-system", "session-id": "resume-session", "user-id": "u3"},
+        headers={"systemkey": "demo-system", "session-id": "resume-session", "user-id": "u3"},
     )
 
     assert second.status_code == 200
@@ -114,7 +114,7 @@ def test_chat_completions_rejects_unknown_model(client: TestClient) -> None:
             "model": "missing-workflow",
             "messages": [{"role": "user", "content": "hello"}],
         },
-        headers={"systemKey": "demo-system"},
+        headers={"systemkey": "demo-system"},
     )
 
     assert response.status_code == 400

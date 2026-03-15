@@ -20,7 +20,7 @@ async def list_models(request: Request) -> dict[str, object]:
 async def chat_completions(
     req: ChatCompletionRequest,
     request: Request,
-    system_key: str | None = Header(default=None, alias="systemKey"),
+    systemkey: str | None = Header(default=None, alias="systemkey"),
     session_id: str | None = Header(default=None, alias="session-id"),
     user_id: str | None = Header(default=None, alias="user-id"),
 ):
@@ -28,7 +28,7 @@ async def chat_completions(
     try:
         ctx = service.resolve_request_context(
             req=req,
-            system_key=system_key,
+            systemkey=systemkey,
             session_id=session_id,
             user_id=user_id,
         )

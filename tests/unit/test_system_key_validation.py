@@ -30,11 +30,11 @@ def test_system_key_is_not_validated_by_default() -> None:
 
     ctx = service.resolve_request_context(
         req=ChatCompletionRequest(model="demo_hitl"),
-        system_key="unknown-system",
+        systemkey="unknown-system",
         session_id=None,
         user_id=None,
     )
-    assert ctx.system_key == "unknown-system"
+    assert ctx.systemkey == "unknown-system"
 
 
 def test_system_key_validation_raises_when_enabled() -> None:
@@ -59,7 +59,7 @@ def test_system_key_validation_raises_when_enabled() -> None:
     try:
         service.resolve_request_context(
             req=ChatCompletionRequest(model="demo_hitl"),
-            system_key="unknown-system",
+            systemkey="unknown-system",
             session_id=None,
             user_id=None,
         )

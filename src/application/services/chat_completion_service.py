@@ -56,20 +56,20 @@ class ChatCompletionService:
         self,
         *,
         req: ChatCompletionRequest,
-        system_key: str | None,
+        systemkey: str | None,
         session_id: str | None,
         user_id: str | None,
     ) -> RequestContext:
         validate = bool(self._config_provider.get("api.auth.validate_system_key", False))
-        effective_system_key = system_key or "default-system"
+        effectivesystemkey = systemkey or "default-system"
         if validate:
             systems = self._config_provider.get("api.auth.systems", [])
             keys = {item.get("key") for item in systems if isinstance(item, dict)}
-            if effective_system_key not in keys:
-                raise InvalidSystemKeyError(f"unknown systemKey: {effective_system_key}")
-        route = self._routing_service.resolve(model=req.model, system_key=effective_system_key)
+            if effectivesystemkey not in keys:
+                raise InvalidSystemKeyError(f"unknown systemkey: {effectivesystemkey}")
+        route = self._routing_service.resolve(model=req.model, systemkey=effectivesystemkey)
         return RequestContext(
-            system_key=effective_system_key,
+            systemkey=effectivesystemkey,
             session_id=session_id or uuid.uuid4().hex,
             user_id=user_id,
             workflow=route.workflow,

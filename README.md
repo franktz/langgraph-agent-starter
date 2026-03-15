@@ -90,3 +90,8 @@ The default sample configuration is safe to publish:
 - [Dynamic Config (中文)](docs/dynamic_config.zh-CN.md)
 - [Changelog](CHANGELOG.md)
 - [Release Notes v0.1.1](docs/releases/v0.1.1.md)
+
+## API Examples
+
+- [cURL Examples](docs/curl_examples.md)
+- [cURL Examples (中文)](docs/curl_examples.zh-CN.md)

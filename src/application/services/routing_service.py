@@ -17,7 +17,7 @@ class RoutingService:
         self._config_provider = config_provider
         self._workflow_registry = workflow_registry
 
-    def resolve(self, *, model: str | None, system_key: str) -> ResolvedRoute:
+    def resolve(self, *, model: str | None, systemkey: str) -> ResolvedRoute:
         workflow = model or str(self._config_provider.get("api.defaults.workflow", "demo_hitl"))
         valid_workflows = {spec.name for spec in self._workflow_registry.list_specs()}
         if workflow not in valid_workflows:
@@ -29,7 +29,7 @@ class RoutingService:
             for item in systems:
                 if not isinstance(item, dict):
                     continue
-                if item.get("key") == system_key:
+                if item.get("key") == systemkey:
                     llm_profile = str(item.get("default_llm_profile", "default"))
                     break
         return ResolvedRoute(workflow=workflow, llm_profile=llm_profile)

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class RequestContext:
-    system_key: str
+    systemkey: str
     session_id: str
     user_id: str | None
     workflow: str

@@ -34,7 +34,7 @@ workflow 实现不直接依赖 FastAPI 组合根，平台侧通过 registry 和 
 根配置负责平台级能力，例如：
 
 - API 默认行为
-- `systemKey -> llm profile`
+- `systemkey -> llm profile`
 - `model -> workflow`
 - 日志、HTTP、Langfuse、checkpointer
 - workflow 配置文件位置和 Nacos 映射关系
@@ -113,21 +113,22 @@ workflow node 不直接自行读取全局配置，而是由 `WorkflowConfigRegis
 - 顶层 `session_id`
 - 顶层 `user_id`
 - metadata:
-  - `systemKey`
+  - `systemkey`
   - `session_id`
   - `user_id`
   - `workflow`
   - `llm_profile`
 - tags:
   - `workflow:<workflow>`
-  - `systemKey:<systemKey>`
+  - `systemkey:<systemkey>`
   - `llm_profile:<profile>`
 
 这样在 Langfuse 中可以更方便地按会话、用户、workflow 或业务系统筛选。
 
-### `systemKey` 命名约定
+### `systemkey` 命名约定
 
-接口层、请求上下文和运行时 metadata 都统一保留字段名 `systemKey`，不做别名替换。
+调用侧主字段统一为 `systemkey`。
+Langfuse 侧的 metadata、tags 和 workflow state 也统一使用 `systemkey`。
 
 ## 真实集成状态
 

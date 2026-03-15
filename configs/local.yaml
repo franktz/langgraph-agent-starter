@@ -14,12 +14,14 @@ logging:
   backup_count: 7
 
 nacos:
-  server_addr: 127.0.0.1:8848
+  server_addr: 192.168.50.62:8848
   namespace: null
   data_id: langgraph-agent-starter.yaml
   group: DEFAULT_GROUP
-  backend: auto
+  backend: sdk_v2
   polling_interval_seconds: 2
+  username: nacos
+  password: nacos
 
 langgraph:
   checkpointer:

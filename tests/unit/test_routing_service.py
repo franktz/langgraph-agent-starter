@@ -8,7 +8,7 @@ def test_routing_service_resolves_workflow_and_llm_profile() -> None:
     provider.load_from_env()
     service = RoutingService(config_provider=provider, workflow_registry=WorkflowRegistry())
 
-    route = service.resolve(model="demo_summary", system_key="demo-system")
+    route = service.resolve(model="demo_summary", systemkey="demo-system")
 
     assert route.workflow == "demo_summary"
     assert route.llm_profile == "default"

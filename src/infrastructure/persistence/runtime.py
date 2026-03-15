@@ -57,7 +57,7 @@ class WorkflowRuntime:
             result = await graph.ainvoke(Command(resume=resume_payload), config=self._config(ctx))
         else:
             result = await graph.ainvoke(
-                {"question": last_user, "system_key": ctx.system_key, "llm_profile": ctx.llm_profile},
+                {"question": last_user, "systemkey": ctx.systemkey, "llm_profile": ctx.llm_profile},
                 config=self._config(ctx),
             )
         if isinstance(result, dict) and result.get("__interrupt__") is not None:
@@ -117,13 +117,13 @@ class WorkflowRuntime:
     def _config(self, ctx: RequestContext) -> dict[str, Any]:
         trace_tags = [
             f"workflow:{ctx.workflow}",
-            f"systemKey:{ctx.system_key}",
+            f"systemkey:{ctx.systemkey}",
             f"llm_profile:{ctx.llm_profile}",
         ]
         config: dict[str, Any] = {
             "configurable": {"thread_id": ctx.session_id},
             "metadata": {
-                "systemKey": ctx.system_key,
+                "systemkey": ctx.systemkey,
                 "session_id": ctx.session_id,
                 "user_id": ctx.user_id,
                 "workflow": ctx.workflow,

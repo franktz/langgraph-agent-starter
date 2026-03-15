@@ -36,7 +36,7 @@ layer invokes workflows through the registry and runtime.
 The root config owns platform-wide behavior:
 
 - API defaults
-- `systemKey -> llm profile`
+- `systemkey -> llm profile`
 - `model -> workflow`
 - logging, HTTP, Langfuse, and checkpointer setup
 - workflow config location and Nacos mapping
@@ -118,23 +118,23 @@ Runtime metadata includes:
 - top-level `session_id`
 - top-level `user_id`
 - metadata:
-  - `systemKey`
+  - `systemkey`
   - `session_id`
   - `user_id`
   - `workflow`
   - `llm_profile`
 - tags:
   - `workflow:<workflow>`
-  - `systemKey:<systemKey>`
+  - `systemkey:<systemkey>`
   - `llm_profile:<profile>`
 
 This makes it easy to filter traces in Langfuse by session, user, workflow, or
 business system.
 
-### `systemKey` Naming Convention
+### `systemkey` Naming Convention
 
-The API layer, request context, and runtime metadata consistently keep the full
-field name `systemKey` instead of renaming it.
+The API layer uses the caller-facing field name `systemkey`.
+Langfuse-facing metadata, tags, and workflow state also use `systemkey`.
 
 ## Real Integration Status
 

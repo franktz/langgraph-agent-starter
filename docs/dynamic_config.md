@@ -147,5 +147,5 @@ workflow_configs:
 
 ## Notes
 
-- `systemKey` is a business request header, not part of the config component itself.
+- `systemkey` is a business request header, not part of the config component itself.
 - The config component is responsible only for loading, refreshing, and exposing config.

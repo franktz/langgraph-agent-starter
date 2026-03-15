@@ -11,8 +11,8 @@
 
 ## Header Conventions
 
-- `systemKey`
-  Business system identifier. The field name is intentionally kept as `systemKey`.
+- `systemkey`
+  Business system identifier. The primary request header is `systemkey`.
 - `session-id`
   Conversation or thread identifier.
 - `user-id`
@@ -22,8 +22,8 @@
 
 - `model -> workflow`
   The OpenAI-style `model` field selects which workflow graph to run.
-- `systemKey -> llm profile`
-  The request header `systemKey` selects the current business-facing LLM profile.
+- `systemkey -> llm profile`
+  The request header `systemkey` selects the current business-facing LLM profile.
 
 ## Chat Completion Behavior
 
@@ -125,8 +125,8 @@ Trace metadata automatically includes:
 
 - top-level `session_id`
 - top-level `user_id`
-- metadata fields such as `systemKey`, `workflow`, and `llm_profile`
-- tags such as `workflow:<workflow>`, `systemKey:<systemKey>`, and `llm_profile:<profile>`
+- metadata fields such as `systemkey`, `workflow`, and `llm_profile`
+- tags such as `workflow:<workflow>`, `systemkey:<systemkey>`, and `llm_profile:<profile>`
 
 ### Push Nacos Config
 
@@ -194,7 +194,7 @@ Register the graph in `src/workflows/registry.py`.
 ### Expose It to Callers
 
 Callers select workflows through the OpenAI-style `model` field.
-If a workflow should only serve certain systems, combine that with `systemKey`
+If a workflow should only serve certain systems, combine that with `systemkey`
 for business isolation.
 
 ## Nacos Backend Options

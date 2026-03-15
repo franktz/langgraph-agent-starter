@@ -38,7 +38,7 @@ def test_runtime_langfuse_metadata_contains_filterable_fields() -> None:
     )
 
     ctx = RequestContext(
-        system_key="full-system-key-demo",
+        systemkey="full-system-key-demo",
         session_id="session-123",
         user_id="user-456",
         workflow="demo_summary",
@@ -48,9 +48,9 @@ def test_runtime_langfuse_metadata_contains_filterable_fields() -> None:
     config = runtime._config(ctx)
     metadata = config["metadata"]
 
-    assert metadata["systemKey"] == "full-system-key-demo"
+    assert metadata["systemkey"] == "full-system-key-demo"
     assert metadata["session_id"] == "session-123"
     assert metadata["user_id"] == "user-456"
     assert metadata["langfuse_session_id"] == "session-123"
     assert metadata["langfuse_user_id"] == "user-456"
-    assert "systemKey:full-system-key-demo" in metadata["langfuse_tags"]
+    assert "systemkey:full-system-key-demo" in metadata["langfuse_tags"]

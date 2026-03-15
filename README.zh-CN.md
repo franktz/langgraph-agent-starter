@@ -2,6 +2,11 @@
 
 [English](README.md)
 
+## API Examples
+
+- [cURL 示例](docs/curl_examples.zh-CN.md)
+- [cURL Examples](docs/curl_examples.md)
+
 这是一个面向平台工程与 workflow 开发协作的 LangGraph 通用脚手架，
 重点是把平台侧通用能力和图实现尽量解耦。
 

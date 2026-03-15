@@ -11,6 +11,36 @@ class LangfuseFactory:
         self._config_provider = config_provider
         self._logger = logger_factory.get_logger("infrastructure.monitoring.langfuse")
         self._client: Any | None = None
+        self._otel_detach_patched = False
+
+    def _patch_opentelemetry_detach(self) -> None:
+        if self._otel_detach_patched:
+            return
+
+        try:
+            from opentelemetry import context as otel_context_api
+            from opentelemetry.context import _RUNTIME_CONTEXT
+        except Exception:
+            return
+
+        if getattr(otel_context_api, "_langgraph_agent_starter_safe_detach", False):
+            self._otel_detach_patched = True
+            return
+
+        logger = self._logger
+
+        def _safe_detach(token) -> None:
+            try:
+                _RUNTIME_CONTEXT.detach(token)
+            except ValueError as exc:
+                if "different Context" in str(exc):
+                    logger.debug("suppressed cross-context opentelemetry detach", exc_info=exc)
+                    return
+                raise
+
+        otel_context_api.detach = _safe_detach
+        otel_context_api._langgraph_agent_starter_safe_detach = True
+        self._otel_detach_patched = True
 
     def make_handler(self) -> Any | None:
         if not bool(self._config_provider.get("langfuse.enabled", False)):
@@ -27,6 +57,7 @@ class LangfuseFactory:
                     secret_key=self._config_provider.get("langfuse.secret_key"),
                     host=self._config_provider.get("langfuse.host"),
                 )
+            self._patch_opentelemetry_detach()
             return CallbackHandler(public_key=self._config_provider.get("langfuse.public_key"))
         except Exception:
             return None

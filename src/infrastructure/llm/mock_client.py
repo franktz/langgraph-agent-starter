@@ -29,7 +29,7 @@ class MockChatClient:
         self._http_client = http_client
 
     async def stream_chat(
-        self, *, model: str, messages: list[ChatMessage], system_key: str
+        self, *, model: str, messages: list[ChatMessage], systemkey: str
     ) -> AsyncIterator[str]:
         profile = self._profile(model)
         provider = str(profile.get("provider", "mock") or "mock")
@@ -38,22 +38,22 @@ class MockChatClient:
                 profile_name=model,
                 profile=profile,
                 messages=messages,
-                system_key=system_key,
+                systemkey=systemkey,
             ):
                 yield chunk
             return
 
-        async for chunk in self._stream_mock(model=model, messages=messages, system_key=system_key):
+        async for chunk in self._stream_mock(model=model, messages=messages, systemkey=systemkey):
             yield chunk
 
     def _profile(self, profile_name: str):
         return self._config_provider.conf["llm.profiles"][profile_name]
 
     async def _stream_mock(
-        self, *, model: str, messages: list[ChatMessage], system_key: str
+        self, *, model: str, messages: list[ChatMessage], systemkey: str
     ) -> AsyncIterator[str]:
         user_text = next((m.content for m in reversed(messages) if m.role == "user"), "")
-        content = f"[{system_key}/{model}] {user_text or '(empty)'}"
+        content = f"[{systemkey}/{model}] {user_text or '(empty)'}"
         for index, token in enumerate(content.split(" ")):
             if index:
                 yield " "
@@ -66,7 +66,7 @@ class MockChatClient:
         profile_name: str,
         profile,
         messages: list[ChatMessage],
-        system_key: str,
+        systemkey: str,
     ) -> AsyncIterator[str]:
         base_url = str(profile.get("base_url", "") or "").rstrip("/")
         model_name = str(profile.get("model", profile_name) or profile_name)
@@ -83,7 +83,7 @@ class MockChatClient:
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "X-System-Key": system_key,
+            "X-System-Key": systemkey,
         }
         try:
             response = await self._http_client.post_json(

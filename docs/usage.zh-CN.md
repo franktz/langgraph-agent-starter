@@ -11,8 +11,8 @@
 
 ## 请求头约定
 
-- `systemKey`
-  业务系统标识，字段名统一保留为 `systemKey`
+- `systemkey`
+  业务系统标识，主请求头字段为 `systemkey`
 - `session-id`
   会话或线程标识
 - `user-id`
@@ -22,8 +22,8 @@
 
 - `model -> workflow`
   OpenAI 风格请求体中的 `model` 决定要调用哪张 workflow 图
-- `systemKey -> llm profile`
-  请求头中的 `systemKey` 决定当前业务系统使用哪个 LLM profile
+- `systemkey -> llm profile`
+  请求头中的 `systemkey` 决定当前业务系统使用哪个 LLM profile
 
 ## Chat Completion 行为
 
@@ -125,8 +125,8 @@ trace 会自动带上：
 
 - 顶层 `session_id`
 - 顶层 `user_id`
-- metadata 中的 `systemKey`、`workflow`、`llm_profile`
-- tags 中的 `workflow:<workflow>`、`systemKey:<systemKey>`、`llm_profile:<profile>`
+- metadata 中的 `systemkey`、`workflow`、`llm_profile`
+- tags 中的 `workflow:<workflow>`、`systemkey:<systemkey>`、`llm_profile:<profile>`
 
 ### 推送 Nacos 配置
 
@@ -194,7 +194,7 @@ prompt_prefix = workflow_config.get("prompts.draft_prefix", "")
 ### 暴露给调用方
 
 调用方通过 OpenAI 风格 `model` 选择 workflow。
-如果某张图只服务部分系统，再结合 `systemKey` 做业务隔离。
+如果某张图只服务部分系统，再结合 `systemkey` 做业务隔离。
 
 ## Nacos Backend 选项
 
