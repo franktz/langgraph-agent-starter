@@ -1,6 +1,6 @@
 from domain.auth.models import RequestContext
 from infrastructure.config.provider import ConfigProvider
-from infrastructure.logging.factory import setup_logging
+from infrastructure.logging.factory import request_id_var, setup_logging
 from infrastructure.persistence.runtime import WorkflowRuntime
 from workflows.registry import WorkflowRegistry
 
@@ -45,12 +45,19 @@ def test_runtime_langfuse_metadata_contains_filterable_fields() -> None:
         llm_profile="default",
     )
 
-    config = runtime._config(ctx)
+    token = request_id_var.set("req-789")
+    try:
+        config = runtime._config(ctx)
+    finally:
+        request_id_var.reset(token)
     metadata = config["metadata"]
 
+    assert metadata["request_id"] == "req-789"
     assert metadata["systemkey"] == "full-system-key-demo"
     assert metadata["session_id"] == "session-123"
     assert metadata["user_id"] == "user-456"
+    assert metadata["langfuse_request_id"] == "req-789"
     assert metadata["langfuse_session_id"] == "session-123"
     assert metadata["langfuse_user_id"] == "user-456"
+    assert "request_id:req-789" in metadata["langfuse_tags"]
     assert "systemkey:full-system-key-demo" in metadata["langfuse_tags"]

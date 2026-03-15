@@ -10,7 +10,7 @@ from langgraph.types import Command
 from domain.auth.models import RequestContext
 from infrastructure.config.provider import ConfigProvider
 from infrastructure.llm.mock_client import MockChatClient
-from infrastructure.logging.factory import LoggerFactory
+from infrastructure.logging.factory import LoggerFactory, request_id_var
 from infrastructure.monitoring.langfuse import LangfuseFactory
 from infrastructure.persistence.events import RuntimeEvent
 from presentation.schemas.openai import ChatCompletionRequest
@@ -51,11 +51,41 @@ class WorkflowRuntime:
     async def run_once(self, *, request: ChatCompletionRequest, ctx: RequestContext) -> dict[str, Any]:
         graph = self._get_graph(ctx.workflow)
         last_user = self._last_user_text(request) or ""
-        self._logger.info("workflow invocation started", extra={"workflow": ctx.workflow})
+        self._logger.info(
+            "[FLOW] workflow=%s session=%s user=%s -> start llm_profile=%s",
+            ctx.workflow,
+            ctx.session_id,
+            ctx.user_id or "-",
+            ctx.llm_profile,
+            extra={
+                "workflow": ctx.workflow,
+                "session_id": ctx.session_id,
+                "user_id": ctx.user_id,
+                "llm_profile": ctx.llm_profile,
+            },
+        )
         resume_payload = self._resume_payload(request)
         if resume_payload is not None:
+            self._logger.info(
+                "[FLOW] workflow=%s session=%s -> resume requested payload=%s",
+                ctx.workflow,
+                ctx.session_id,
+                resume_payload,
+                extra={"workflow": ctx.workflow, "session_id": ctx.session_id, "resume_payload": resume_payload},
+            )
             result = await graph.ainvoke(Command(resume=resume_payload), config=self._config(ctx))
         else:
+            self._logger.info(
+                "[FLOW] workflow=%s session=%s -> request accepted question=%r",
+                ctx.workflow,
+                ctx.session_id,
+                self._preview_text(last_user),
+                extra={
+                    "workflow": ctx.workflow,
+                    "session_id": ctx.session_id,
+                    "question_preview": self._preview_text(last_user),
+                },
+            )
             result = await graph.ainvoke(
                 {"question": last_user, "systemkey": ctx.systemkey, "llm_profile": ctx.llm_profile},
                 config=self._config(ctx),
@@ -63,7 +93,17 @@ class WorkflowRuntime:
         if isinstance(result, dict) and result.get("__interrupt__") is not None:
             interrupt_payload = self._normalize_interrupt(result.get("__interrupt__"))
             self._session_state[ctx.session_id] = {"workflow": ctx.workflow, "interrupt": interrupt_payload}
-            self._logger.info("workflow interrupted", extra={"workflow": ctx.workflow})
+            self._logger.info(
+                "[HITL] workflow=%s session=%s -> interrupted waiting_human_input payload=%s",
+                ctx.workflow,
+                ctx.session_id,
+                interrupt_payload,
+                extra={
+                    "workflow": ctx.workflow,
+                    "session_id": ctx.session_id,
+                    "interrupt_payload": interrupt_payload,
+                },
+            )
             return {
                 "index": 0,
                 "message": {
@@ -83,7 +123,17 @@ class WorkflowRuntime:
                 "finish_reason": "tool_calls",
             }
         self._session_state.pop(ctx.session_id, None)
-        self._logger.info("workflow completed", extra={"workflow": ctx.workflow})
+        self._logger.info(
+            "[FLOW] workflow=%s session=%s -> completed output=%r",
+            ctx.workflow,
+            ctx.session_id,
+            self._preview_text(self._result_text(result)),
+            extra={
+                "workflow": ctx.workflow,
+                "session_id": ctx.session_id,
+                "output_preview": self._preview_text(self._result_text(result)),
+            },
+        )
         content = self._result_text(result)
         return {"index": 0, "message": {"role": "assistant", "content": content}, "finish_reason": "stop"}
 
@@ -93,11 +143,28 @@ class WorkflowRuntime:
         result = await self.run_once(request=request, ctx=ctx)
         message = result["message"]
         if message.get("tool_calls"):
+            self._logger.info(
+                "[STREAM] workflow=%s session=%s -> emit tool_calls",
+                ctx.workflow,
+                ctx.session_id,
+                extra={"workflow": ctx.workflow, "session_id": ctx.session_id},
+            )
             event = RuntimeEvent(type="tool_calls", payload={"tool_calls": message["tool_calls"]})
             yield f"data: {json.dumps(event.to_chunk(completion_id=completion_id, created=created, workflow=ctx.workflow, session_id=ctx.session_id, user_id=ctx.user_id), ensure_ascii=False)}\n\n"
             yield f"data: {json.dumps({'id': completion_id, 'object': 'chat.completion.chunk', 'created': created, 'model': ctx.workflow, 'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'tool_calls'}], 'session_id': ctx.session_id, 'user_id': ctx.user_id}, ensure_ascii=False)}\n\n"
             return
         content = str(message.get("content") or "")
+        self._logger.info(
+            "[STREAM] workflow=%s session=%s -> emit content=%r",
+            ctx.workflow,
+            ctx.session_id,
+            self._preview_text(content),
+            extra={
+                "workflow": ctx.workflow,
+                "session_id": ctx.session_id,
+                "content_preview": self._preview_text(content),
+            },
+        )
         event = RuntimeEvent(type="content", payload={"content": content})
         yield f"data: {json.dumps(event.to_chunk(completion_id=completion_id, created=created, workflow=ctx.workflow, session_id=ctx.session_id, user_id=ctx.user_id), ensure_ascii=False)}\n\n"
         yield f"data: {json.dumps({'id': completion_id, 'object': 'chat.completion.chunk', 'created': created, 'model': ctx.workflow, 'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'stop'}], 'session_id': ctx.session_id, 'user_id': ctx.user_id}, ensure_ascii=False)}\n\n"
@@ -115,19 +182,23 @@ class WorkflowRuntime:
         return graph
 
     def _config(self, ctx: RequestContext) -> dict[str, Any]:
+        request_id = request_id_var.get("-")
         trace_tags = [
             f"workflow:{ctx.workflow}",
             f"systemkey:{ctx.systemkey}",
             f"llm_profile:{ctx.llm_profile}",
+            f"request_id:{request_id}",
         ]
         config: dict[str, Any] = {
             "configurable": {"thread_id": ctx.session_id},
             "metadata": {
+                "request_id": request_id,
                 "systemkey": ctx.systemkey,
                 "session_id": ctx.session_id,
                 "user_id": ctx.user_id,
                 "workflow": ctx.workflow,
                 "llm_profile": ctx.llm_profile,
+                "langfuse_request_id": request_id,
                 "langfuse_session_id": ctx.session_id,
                 "langfuse_user_id": ctx.user_id,
                 "langfuse_tags": trace_tags,
@@ -188,3 +259,12 @@ class WorkflowRuntime:
                             parts.append(text)
                 return "".join(parts) if parts else None
         return None
+
+    @staticmethod
+    def _preview_text(value: str | None, *, limit: int = 80) -> str:
+        if not value:
+            return ""
+        normalized = " ".join(value.split())
+        if len(normalized) <= limit:
+            return normalized
+        return f"{normalized[:limit]}..."
