@@ -131,6 +131,7 @@ curl -N -sS -X POST "$BASE_URL/v1/chat/completions" \
 ## 说明
 
 - `model` 直接映射到 workflow 名称。
-- `SYSTEMKEY` 用来选择业务系统范围；当前 demo 的上游模型配置统一放在各自 workflow 配置里的 `llm.default` 下。
+- `SYSTEMKEY` 用来标识调用方所属的业务系统范围；当前 demo 的上游模型配置统一放在各自 workflow 配置里的 `llm.default` 下。
+- 当开启 `api.auth.enabled` 时，`SYSTEMKEY` 必须命中 `api.auth.systemkeys` 白名单，否则接口会返回 `401 invalid_system_key`。
 - 当前仓库内置 `demo_hitl` 和 `demo_summary` 两个 workflow。
 - 如果只想测试 HITL 恢复行为，请在前后两次请求中保持同一个 `session-id`。

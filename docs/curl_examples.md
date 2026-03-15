@@ -1,6 +1,6 @@
 # cURL Examples
 
-[中文版](curl_examples.zh-CN.md)
+[Chinese Version](curl_examples.zh-CN.md)
 
 These examples use Bash syntax and target the two built-in demo workflows:
 
@@ -133,8 +133,11 @@ curl -N -sS -X POST "$BASE_URL/v1/chat/completions" \
 ## Notes
 
 - `model` maps directly to a workflow name.
-- `SYSTEMKEY` selects the business system scope. The current demo keeps its
-  upstream model config under `llm.default` inside each workflow config.
+- `SYSTEMKEY` identifies the caller's business system scope. The current demo
+  keeps its upstream model config under `llm.default` inside each workflow
+  config.
+- When `api.auth.enabled` is turned on, `SYSTEMKEY` must be included in
+  `api.auth.systemkeys`, otherwise the API returns `401 invalid_system_key`.
 - This repo currently includes `demo_hitl` and `demo_summary`.
 - If you only want to test HITL resume behavior, keep the same `session-id`
   across both requests.

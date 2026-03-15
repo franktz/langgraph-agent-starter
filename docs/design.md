@@ -1,6 +1,6 @@
 # Design Guide
 
-[中文版](design.zh-CN.md)
+[Chinese Version](design.zh-CN.md)
 
 ## Goals
 
@@ -35,7 +35,7 @@ layer invokes workflows through the registry and runtime.
 
 The root config owns platform-wide behavior:
 
-- API defaults
+- API auth and transport conventions
 - `model -> workflow`
 - logging, HTTP, Langfuse, and checkpointer setup
 - workflow config location and Nacos mapping

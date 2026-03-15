@@ -1,6 +1,6 @@
 # Usage Guide
 
-[中文版](usage.zh-CN.md)
+[Chinese Version](usage.zh-CN.md)
 
 ## API
 

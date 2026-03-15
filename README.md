@@ -1,6 +1,6 @@
 # langgraph-agent-starter
 
-[中文文档](README.zh-CN.md)
+[Chinese Version](README.zh-CN.md)
 
 A production-oriented LangGraph starter for teams that want a clean separation
 between platform engineering concerns and workflow implementation.
@@ -20,6 +20,22 @@ between platform engineering concerns and workflow implementation.
 - Redis or in-memory LangGraph checkpointer support
 - Reusable `dynamic_config` capability consumed from the published PyPI package
   `dynamic-config-nacos`
+
+## Runtime Contract
+
+- The OpenAI-style `model` field is required and maps directly to a workflow;
+  missing `model` returns `400 missing_model`
+- `systemkey` is used for caller identity and business isolation only; it no
+  longer selects an LLM configuration
+- When `api.auth.enabled=true`, `systemkey` must be included in
+  `api.auth.systemkeys`, otherwise the API returns `401 invalid_system_key`
+- Each workflow owns its upstream LLM config under `llm.default`
+  - common fields include `provider`, `base_url`, `apikey`, `headers`,
+    `model`, `max_tokens`, `timeout`, and `retry`
+  - `timeout`, `retry.min_wait`, and `retry.max_wait` use milliseconds
+  - the runtime still sends `Content-Type: application/json` even when
+    optional extra `headers` are not configured
+- Streaming responses are true SSE deltas, not buffered pseudo-streaming
 
 ## Architecture
 
@@ -84,15 +100,15 @@ The default sample configuration is safe to publish:
 ## Documentation
 
 - [Usage Guide](docs/usage.md)
-- [Usage Guide (中文)](docs/usage.zh-CN.md)
+- [Usage Guide (Chinese)](docs/usage.zh-CN.md)
 - [Design Guide](docs/design.md)
-- [Design Guide (中文)](docs/design.zh-CN.md)
+- [Design Guide (Chinese)](docs/design.zh-CN.md)
 - [Dynamic Config](docs/dynamic_config.md)
-- [Dynamic Config (中文)](docs/dynamic_config.zh-CN.md)
+- [Dynamic Config (Chinese)](docs/dynamic_config.zh-CN.md)
 - [Changelog](CHANGELOG.md)
 - [Release Notes v0.1.1](docs/releases/v0.1.1.md)
 
 ## API Examples
 
 - [cURL Examples](docs/curl_examples.md)
-- [cURL Examples (中文)](docs/curl_examples.zh-CN.md)
+- [cURL Examples (Chinese)](docs/curl_examples.zh-CN.md)

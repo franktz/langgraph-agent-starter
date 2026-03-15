@@ -33,7 +33,7 @@ Workflow 代码不依赖 FastAPI 组合根，平台层通过 registry 和 runtim
 
 根配置负责平台级行为：
 
-- API 默认值
+- API 鉴权与传输层约定
 - `model -> workflow`
 - logging、HTTP、Langfuse、checkpointer 初始化
 - workflow 配置位置和 Nacos 映射

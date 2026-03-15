@@ -1,5 +1,7 @@
 # Dynamic Config Component
 
+[Chinese Version](dynamic_config.zh-CN.md)
+
 ## What It Is
 
 `langgraph-agent-starter` uses the published PyPI package

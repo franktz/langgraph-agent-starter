@@ -23,6 +23,17 @@
 - 支持 Redis / memory 两种 LangGraph checkpointer
 - 通过 PyPI 包 `dynamic-config-nacos` 复用动态配置能力
 
+## 关键运行约定
+
+- OpenAI 风格请求里的 `model` 为必填，并直接映射到 workflow；缺失时返回 `400 missing_model`
+- `systemkey` 只负责调用方身份与业务隔离，不再参与 LLM 选型
+- 当 `api.auth.enabled=true` 时，`systemkey` 必须命中 `api.auth.systemkeys` 白名单，否则返回 `401 invalid_system_key`
+- 当前示例里，每个 workflow 都在自己的配置中维护 `llm.default`
+  - 常用字段包括 `provider`、`base_url`、`apikey`、`headers`、`model`、`max_tokens`、`timeout`、`retry`
+  - `timeout`、`retry.min_wait`、`retry.max_wait` 都使用毫秒
+  - 即使没有额外 `headers`，运行时也会默认发送 `Content-Type: application/json`
+- 流式接口返回的是真 SSE 增量数据，不是服务端拼好后的伪流式
+
 ## 工程分层
 
 - `src/app/`
