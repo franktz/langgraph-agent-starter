@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -97,16 +96,10 @@ class ChatCompletionService:
     ) -> AsyncIterator[str]:
         created = int(time.time())
         completion_id = f"chatcmpl-{uuid.uuid4().hex}"
-        first_chunk = {
-            "id": completion_id,
-            "object": "chat.completion.chunk",
-            "created": created,
-            "model": ctx.workflow,
-            "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
-            "session_id": ctx.session_id,
-            "user_id": ctx.user_id,
-        }
-        yield f"data: {json.dumps(first_chunk, ensure_ascii=False)}\n\n"
-        async for chunk in self._workflow_runtime.stream(request=req, ctx=ctx, completion_id=completion_id, created=created):
+        async for chunk in self._workflow_runtime.stream(
+            request=req,
+            ctx=ctx,
+            completion_id=completion_id,
+            created=created,
+        ):
             yield chunk
-        yield "data: [DONE]\n\n"

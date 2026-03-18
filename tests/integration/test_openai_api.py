@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+from contextlib import asynccontextmanager
 
 from fastapi.testclient import TestClient
+
+from infrastructure.http.errors import HttpClientResponseError
 
 
 def test_v1_models_lists_demo_workflows(client: TestClient) -> None:
@@ -337,3 +340,93 @@ def test_chat_completions_rejects_missing_systemkey_when_auth_enabled(client: Te
     payload = response.json()
     assert payload["error"]["type"] == "authentication_error"
     assert payload["error"]["code"] == "invalid_system_key"
+
+
+def test_chat_completions_stream_openai_passthroughs_raw_events(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    provider = client.app.state.container.workflow_config_registry.get_provider("demo_chat")
+    provider.conf._value["llm"]["default"].update(  # type: ignore[attr-defined]
+        {
+            "provider": "openai_compatible",
+            "base_url": "https://example.invalid",
+            "endpoint": "/chat/completions",
+            "model": "broken-model",
+        }
+    )
+
+    class _FakeResponse:
+        async def aiter_lines(self):
+            yield 'data: {"id":"chatcmpl-upstream","object":"chat.completion.chunk","created":1,"model":"broken-model","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}'
+            yield ""
+            yield 'data: {"error":{"message":"upstream stream failed","status":502}}'
+            yield ""
+            yield "data: [DONE]"
+            yield ""
+
+    @asynccontextmanager
+    async def _fake_stream(*args, **kwargs):
+        yield _FakeResponse()
+
+    monkeypatch.setattr(client.app.state.container.http_client, "stream", _fake_stream)
+
+    with client.stream(
+        "POST",
+        "/v1/chat/completions",
+        json={
+            "model": "demo_chat",
+            "messages": [{"role": "user", "content": "hello"}],
+            "stream": True,
+        },
+        headers={"systemkey": "demo-system", "session-id": "stream-error-session", "user-id": "u5"},
+    ) as response:
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+        lines = [line for line in response.iter_lines() if line]
+
+    assert lines[0] == (
+        'data: {"id":"chatcmpl-upstream","object":"chat.completion.chunk","created":1,'
+        '"model":"broken-model","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}'
+    )
+    assert lines[1] == 'data: {"error":{"message":"upstream stream failed","status":502}}'
+    assert lines[2] == "data: [DONE]"
+
+
+def test_chat_completions_stream_openai_startup_failure_returns_json_error(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    provider = client.app.state.container.workflow_config_registry.get_provider("demo_chat")
+    provider.conf._value["llm"]["default"].update(  # type: ignore[attr-defined]
+        {
+            "provider": "openai_compatible",
+            "base_url": "https://example.invalid",
+            "endpoint": "/chat/completions",
+            "model": "broken-model",
+        }
+    )
+
+    @asynccontextmanager
+    async def _failing_stream(*args, **kwargs):
+        raise HttpClientResponseError(status_code=503, message="upstream connect failed")
+        yield
+
+    monkeypatch.setattr(client.app.state.container.http_client, "stream", _failing_stream)
+
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "demo_chat",
+            "messages": [{"role": "user", "content": "hello"}],
+            "stream": True,
+        },
+        headers={"systemkey": "demo-system", "session-id": "stream-startup-session", "user-id": "u6"},
+    )
+
+    assert response.status_code == 502
+    payload = response.json()
+    assert payload["error"]["type"] == "upstream_error"
+    assert payload["error"]["code"] == "llm_upstream_error"
+    assert payload["error"]["message"] == "upstream connect failed"
+    assert payload["session_id"] == "stream-startup-session"

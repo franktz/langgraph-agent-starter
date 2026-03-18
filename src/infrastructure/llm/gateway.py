@@ -8,7 +8,7 @@ from typing import Any
 
 from infrastructure.http.client import AsyncHttpClient
 from infrastructure.http.errors import HttpClientResponseError
-from infrastructure.llm.streaming import emit_stream_token
+from infrastructure.llm.streaming import emit_stream_sse, emit_stream_token
 from infrastructure.logging.factory import LoggerFactory
 
 
@@ -113,6 +113,7 @@ class LlmGateway:
         retry_config = llm_config.get("retry")
 
         headers = self._build_headers(llm_config=llm_config, systemkey=systemkey)
+        stream_error: HttpClientResponseError | None = None
         try:
             async with self._http_client.stream(
                 "POST",
@@ -122,30 +123,43 @@ class LlmGateway:
                 timeout=timeout_ms / 1000.0,
                 retry=retry_config,
             ) as response:
+                event_lines: list[str] = []
                 async for line in response.aiter_lines():
-                    if not line or not line.startswith("data:"):
+                    if line:
+                        event_lines.append(line)
                         continue
-                    data = line[5:].strip()
-                    if not data or data == "[DONE]":
-                        if data == "[DONE]":
-                            break
+                    if not event_lines:
                         continue
-                    try:
-                        chunk_payload = json.loads(data)
-                    except json.JSONDecodeError:
-                        self._logger.warning(
-                            "openai-compatible llm stream returned non-json chunk",
-                            extra={"llm_name": llm_name, "model": model_name},
-                        )
-                        continue
-                    token = self._extract_stream_content(chunk_payload)
-                    if not token:
-                        continue
-                    await self._emit_token(token, stream_to_client=stream_to_client)
-                    yield token
+                    should_stop, tokens, stream_error = await self._consume_stream_payload(
+                        event_lines=event_lines,
+                        llm_name=llm_name,
+                        model_name=model_name,
+                        stream_to_client=stream_to_client,
+                        stream_error=stream_error,
+                    )
+                    for token in tokens:
+                        yield token
+                    if should_stop:
+                        break
+                if event_lines:
+                    _, tokens, stream_error = await self._consume_stream_payload(
+                        event_lines=event_lines,
+                        llm_name=llm_name,
+                        model_name=model_name,
+                        stream_to_client=stream_to_client,
+                        stream_error=stream_error,
+                    )
+                    for token in tokens:
+                        yield token
         except HttpClientResponseError:
             self._logger.exception("openai-compatible llm request failed")
             raise
+        if stream_error is not None:
+            self._logger.warning(
+                "openai-compatible llm stream completed with an upstream error",
+                extra={"llm_name": llm_name, "model": model_name, "error_message": str(stream_error)},
+            )
+            raise stream_error
 
         self._logger.info(
             "openai-compatible llm request completed",
@@ -174,6 +188,11 @@ class LlmGateway:
         if not stream_to_client:
             return
         await emit_stream_token(token)
+
+    async def _emit_sse(self, event: str, *, stream_to_client: bool) -> None:
+        if not stream_to_client:
+            return
+        await emit_stream_sse(event)
 
     def _payload_message(self, message: ChatMessage) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -213,3 +232,86 @@ class LlmGateway:
         if isinstance(text, str):
             return text
         return ""
+
+    def _extract_stream_error(self, response: object) -> HttpClientResponseError | None:
+        if not isinstance(response, dict):
+            return None
+        error = response.get("error")
+        if isinstance(error, str) and error:
+            return HttpClientResponseError(status_code=502, message=error)
+        if not isinstance(error, dict):
+            return None
+
+        message = error.get("message")
+        if not isinstance(message, str) or not message.strip():
+            message = "openai-compatible llm stream returned an error"
+        status_code = self._coerce_stream_error_status(
+            error.get("status") or error.get("status_code"),
+        )
+        return HttpClientResponseError(status_code=status_code, message=message)
+
+    @staticmethod
+    def _coerce_stream_error_status(value: object) -> int:
+        if isinstance(value, int) and value >= 400:
+            return value
+        if isinstance(value, str):
+            try:
+                parsed = int(value)
+            except ValueError:
+                return 502
+            if parsed >= 400:
+                return parsed
+        return 502
+
+    async def _consume_stream_payload(
+        self,
+        *,
+        event_lines: list[str],
+        llm_name: str,
+        model_name: str,
+        stream_to_client: bool,
+        stream_error: HttpClientResponseError | None,
+    ) -> tuple[bool, list[str], HttpClientResponseError | None]:
+        raw_event = "\n".join(event_lines)
+        event_lines.clear()
+        await self._emit_sse(f"{raw_event}\n\n", stream_to_client=stream_to_client)
+
+        tokens: list[str] = []
+        current_error = stream_error
+        for line in raw_event.splitlines():
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if not data:
+                continue
+            if data == "[DONE]":
+                return True, tokens, current_error
+            try:
+                chunk_payload = json.loads(data)
+            except json.JSONDecodeError:
+                self._logger.warning(
+                    "openai-compatible llm stream returned non-json chunk",
+                    extra={"llm_name": llm_name, "model": model_name},
+                )
+                continue
+            candidate_error = self._extract_stream_error(chunk_payload)
+            if candidate_error is not None:
+                if current_error is None:
+                    self._logger.warning(
+                        "openai-compatible llm stream returned an error chunk",
+                        extra={
+                            "llm_name": llm_name,
+                            "model": model_name,
+                            "status_code": candidate_error.status_code,
+                            "error_message": str(candidate_error),
+                        },
+                    )
+                    current_error = candidate_error
+                continue
+            if current_error is not None:
+                continue
+            token = self._extract_stream_content(chunk_payload)
+            if not token:
+                continue
+            tokens.append(token)
+        return False, tokens, current_error

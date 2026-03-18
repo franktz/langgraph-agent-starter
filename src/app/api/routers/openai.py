@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import contextmanager
 
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -47,16 +49,25 @@ def _error_response(
 
 async def _bind_stream_logging_context(
     *,
-    generator,
+    generator: AsyncIterator[str],
     request_id: str,
     session_id: str,
+    first_chunk: str | None = None,
 ):
+    with _stream_logging_context(request_id=request_id, session_id=session_id):
+        if first_chunk is not None:
+            yield first_chunk
+        async for chunk in generator:
+            yield chunk
+
+
+@contextmanager
+def _stream_logging_context(*, request_id: str, session_id: str):
     token_request = request_id_var.set(request_id)
     token_session = session_id_var.set(session_id)
     token_trace = trace_id_var.set(session_id or request_id)
     try:
-        async for chunk in generator:
-            yield chunk
+        yield
     finally:
         request_id_var.reset(token_request)
         session_id_var.reset(token_session)
@@ -127,11 +138,37 @@ async def chat_completions(
 
     if req.stream:
         request_id, resolved_session_id = _response_ids(request, ctx.session_id)
-        return StreamingResponse(
-            _bind_stream_logging_context(
-                generator=service.stream_chat_completion(req=req, ctx=ctx),
+        generator = service.stream_chat_completion(req=req, ctx=ctx)
+        try:
+            with _stream_logging_context(
                 request_id=request_id,
                 session_id=resolved_session_id or ctx.session_id,
+            ):
+                first_chunk = await anext(generator)
+        except HttpClientTimeoutError as exc:
+            return _error_response(
+                request=request,
+                status_code=504,
+                error_message=str(exc),
+                error_type="upstream_timeout_error",
+                error_code="llm_timeout",
+                session_id=ctx.session_id,
+            )
+        except HttpClientResponseError as exc:
+            return _error_response(
+                request=request,
+                status_code=502,
+                error_message=str(exc),
+                error_type="upstream_error",
+                error_code="llm_upstream_error",
+                session_id=ctx.session_id,
+            )
+        return StreamingResponse(
+            _bind_stream_logging_context(
+                generator=generator,
+                request_id=request_id,
+                session_id=resolved_session_id or ctx.session_id,
+                first_chunk=first_chunk,
             ),
             media_type="text/event-stream",
             headers={

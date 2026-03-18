@@ -11,8 +11,9 @@ from langgraph.types import Command
 
 from domain.auth.models import RequestContext
 from infrastructure.config.provider import ConfigProvider
+from infrastructure.http.errors import HttpClientResponseError, HttpClientTimeoutError
 from infrastructure.llm.context import bind_llm_gateway
-from infrastructure.llm.streaming import bind_stream_writer
+from infrastructure.llm.streaming import StreamFrame, bind_stream_writer
 from infrastructure.llm.gateway import LlmGateway
 from infrastructure.logging.factory import LoggerFactory, request_id_var
 from infrastructure.monitoring.langfuse import LangfuseFactory
@@ -209,15 +210,17 @@ class WorkflowRuntime:
     async def stream(
         self, *, request: ChatCompletionRequest, ctx: RequestContext, completion_id: str, created: int
     ) -> AsyncIterator[str]:
-        queue: asyncio.Queue[str] = asyncio.Queue()
+        queue: asyncio.Queue[StreamFrame] = asyncio.Queue()
         streamed_chunk_count = 0
         streamed_char_count = 0
+        passthrough_mode = False
+        pending_terminal_events: list[str] = []
 
-        async def _write_token(token: str) -> None:
-            await queue.put(token)
+        async def _write_frame(frame: StreamFrame) -> None:
+            await queue.put(frame)
 
         async def _run_with_stream_writer() -> dict[str, Any]:
-            with bind_stream_writer(_write_token):
+            with bind_stream_writer(_write_frame):
                 return await self.run_once(request=request, ctx=ctx)
 
         task = asyncio.create_task(_run_with_stream_writer())
@@ -232,26 +235,46 @@ class WorkflowRuntime:
                 if task.done() and queue.empty():
                     break
                 try:
-                    token = await asyncio.wait_for(queue.get(), timeout=0.05)
+                    frame = await asyncio.wait_for(queue.get(), timeout=0.05)
                 except asyncio.TimeoutError:
                     continue
                 streamed_chunk_count += 1
-                streamed_char_count += len(token)
+                streamed_char_count += len(frame.value)
                 if streamed_chunk_count == 1:
                     self._logger.info(
                         "[STREAM] workflow=%s session=%s -> stream:first_delta chunk=%r",
                         ctx.workflow,
                         ctx.session_id,
-                        self._preview_text(token, limit=40),
+                        self._preview_stream_frame(frame, limit=40),
                         extra={
                             "workflow": ctx.workflow,
                             "session_id": ctx.session_id,
-                            "stream_chunk_preview": self._preview_text(token, limit=40),
+                            "stream_chunk_preview": self._preview_stream_frame(frame, limit=40),
                         },
                     )
-                event = RuntimeEvent(type="content", payload={"content": token})
+                if frame.kind == "sse":
+                    passthrough_mode = True
+                    if self._is_terminal_sse_event(frame.value):
+                        pending_terminal_events.append(frame.value)
+                        continue
+                    yield frame.value
+                    continue
+                event = RuntimeEvent(type="content", payload={"content": frame.value})
                 yield f"data: {json.dumps(event.to_chunk(completion_id=completion_id, created=created, workflow=ctx.workflow, session_id=ctx.session_id, user_id=ctx.user_id), ensure_ascii=False)}\n\n"
-            result = await task
+            try:
+                result = await task
+            except (HttpClientResponseError, HttpClientTimeoutError):
+                if passthrough_mode:
+                    for event in pending_terminal_events:
+                        yield event
+                    self._logger.warning(
+                        "[STREAM] workflow=%s session=%s -> passthrough:terminated_without_wrapper",
+                        ctx.workflow,
+                        ctx.session_id,
+                        extra={"workflow": ctx.workflow, "session_id": ctx.session_id},
+                    )
+                    return
+                raise
         except Exception:
             if not task.done():
                 task.cancel()
@@ -275,6 +298,24 @@ class WorkflowRuntime:
             event = RuntimeEvent(type="tool_calls", payload={"tool_calls": message["tool_calls"]})
             yield f"data: {json.dumps(event.to_chunk(completion_id=completion_id, created=created, workflow=ctx.workflow, session_id=ctx.session_id, user_id=ctx.user_id), ensure_ascii=False)}\n\n"
             yield f"data: {json.dumps({'id': completion_id, 'object': 'chat.completion.chunk', 'created': created, 'model': ctx.workflow, 'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'tool_calls'}], 'session_id': ctx.session_id, 'user_id': ctx.user_id}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+        if passthrough_mode:
+            for event in pending_terminal_events:
+                yield event
+            self._logger.info(
+                "[STREAM] workflow=%s session=%s -> stream:finish passthrough chunks=%s chars=%s",
+                ctx.workflow,
+                ctx.session_id,
+                streamed_chunk_count,
+                streamed_char_count,
+                extra={
+                    "workflow": ctx.workflow,
+                    "session_id": ctx.session_id,
+                    "stream_chunk_count": streamed_chunk_count,
+                    "stream_char_count": streamed_char_count,
+                },
+            )
             return
         content = str(message.get("content") or "")
         if streamed_chunk_count == 0 and content:
@@ -307,6 +348,7 @@ class WorkflowRuntime:
             },
         )
         yield f"data: {json.dumps({'id': completion_id, 'object': 'chat.completion.chunk', 'created': created, 'model': ctx.workflow, 'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'stop'}], 'session_id': ctx.session_id, 'user_id': ctx.user_id}, ensure_ascii=False)}\n\n"
+        yield "data: [DONE]\n\n"
 
     def _get_graph(self, workflow: str):
         graph = self._graph_cache.get(workflow)
@@ -495,6 +537,38 @@ class WorkflowRuntime:
             if content:
                 return content
         return None
+
+    def _is_terminal_sse_event(self, event: str) -> bool:
+        payload = self._sse_data_payload(event)
+        if payload == "[DONE]":
+            return True
+        if not payload:
+            return False
+        try:
+            chunk = json.loads(payload)
+        except json.JSONDecodeError:
+            return False
+        if not isinstance(chunk, dict):
+            return False
+        choices = chunk.get("choices")
+        if not isinstance(choices, list) or not choices:
+            return False
+        choice = choices[0]
+        if not isinstance(choice, dict):
+            return False
+        return choice.get("finish_reason") is not None
+
+    def _sse_data_payload(self, event: str) -> str | None:
+        for line in event.splitlines():
+            if line.startswith("data:"):
+                return line[5:].strip()
+        return None
+
+    def _preview_stream_frame(self, frame: StreamFrame, *, limit: int = 80) -> str:
+        if frame.kind == "sse":
+            payload = self._sse_data_payload(frame.value)
+            return self._preview_text(payload, limit=limit)
+        return self._preview_text(frame.value, limit=limit)
 
     @staticmethod
     def _preview_text(value: str | None, *, limit: int = 80) -> str:
