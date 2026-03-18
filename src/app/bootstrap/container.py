@@ -9,7 +9,7 @@ from infrastructure.config.provider import ConfigProvider
 from infrastructure.config.workflow_registry import WorkflowConfigRegistry
 from infrastructure.http.client import AsyncHttpClient
 from infrastructure.llm.gateway import LlmGateway
-from infrastructure.logging.factory import LoggerFactory, setup_logging
+from infrastructure.logging.factory import LoggerFactory, setup_bootstrap_logging, setup_logging
 from infrastructure.monitoring.langfuse import LangfuseFactory
 from infrastructure.persistence.checkpointer import build_checkpointer
 from infrastructure.persistence.runtime import WorkflowRuntime
@@ -30,6 +30,7 @@ class AppContainer:
 
 
 def build_container() -> AppContainer:
+    setup_bootstrap_logging()
     config_provider = ConfigProvider(local_yaml_path="configs/local.yaml")
     config_provider.load_from_env()
     logger_factory = setup_logging(config_provider)

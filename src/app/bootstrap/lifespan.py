@@ -12,8 +12,8 @@ def register_lifespan(app: FastAPI) -> None:
     @asynccontextmanager
     async def _lifespan(_: FastAPI) -> AsyncIterator[None]:
         container = app.state.container
-        container.config_provider.load_from_env()
-        container.workflow_config_registry.refresh_all()
+        # container.config_provider.load_from_env()
+        # container.workflow_config_registry.refresh_all()
         await container.workflow_runtime.start()
         try:
             yield

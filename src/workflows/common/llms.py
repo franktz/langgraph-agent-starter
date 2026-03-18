@@ -27,19 +27,19 @@ def _local_fallback_provider(
 def resolve_workflow_llm(
     *,
     workflow_config: DynamicConfigProvider | None,
+    llm_name: str = "default",
 ) -> WorkflowLlm:
     if workflow_config is None:
         raise ValueError("workflow config is required to resolve llm")
 
     provider = workflow_config
-    final_name = "default"
 
-    llm_config = provider.get(f"llm.{final_name}")
+    llm_config = provider.get(f"llm.{llm_name}")
     if not isinstance(llm_config, Mapping) and provider is workflow_config:
         fallback_provider = _local_fallback_provider(workflow_config)
         if fallback_provider is not None:
             provider = fallback_provider
-            llm_config = provider.get(f"llm.{final_name}")
+            llm_config = provider.get(f"llm.{llm_name}")
     if not isinstance(llm_config, Mapping):
-        raise ValueError(f"workflow llm '{final_name}' not found")
-    return WorkflowLlm(name=final_name, config=dict(llm_config))
+        raise ValueError(f"workflow llm '{llm_name}' not found")
+    return WorkflowLlm(name=llm_name, config=dict(llm_config))

@@ -13,6 +13,7 @@ from infrastructure.config.provider import ConfigProvider
 request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
 trace_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("trace_id", default="-")
 session_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("session_id", default="-")
+BOOTSTRAP_HANDLER_MARKER = "_langgraph_agent_bootstrap_handler"
 
 
 class TraceFormatter(logging.Formatter):
@@ -49,6 +50,39 @@ class LoggerFactory:
         return _decorator
 
 
+def _build_formatter() -> TraceFormatter:
+    return TraceFormatter(
+        "%(asctime)s %(levelname)s [req=%(request_id)s session=%(session_id)s trace=%(trace_id)s] %(name)s %(message)s"
+    )
+
+
+def setup_bootstrap_logging() -> None:
+    log_dir = Path("logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    bootstrap_path = log_dir / "bootstrap.log"
+    bootstrap_path.touch(exist_ok=True)
+
+    root = logging.getLogger()
+    bootstrap_handlers = [
+        handler for handler in root.handlers if getattr(handler, BOOTSTRAP_HANDLER_MARKER, False)
+    ]
+    for handler in bootstrap_handlers:
+        root.removeHandler(handler)
+        handler.close()
+
+    bootstrap_handler = RotatingFileHandler(
+        bootstrap_path,
+        maxBytes=10 * 1024 * 1024,
+        backupCount=3,
+        encoding="utf-8",
+    )
+    setattr(bootstrap_handler, BOOTSTRAP_HANDLER_MARKER, True)
+    bootstrap_handler.setLevel(logging.DEBUG)
+    bootstrap_handler.setFormatter(_build_formatter())
+    root.setLevel(logging.DEBUG)
+    root.addHandler(bootstrap_handler)
+
+
 def setup_logging(config_provider: ConfigProvider) -> LoggerFactory:
     conf = config_provider.conf
     log_dir = Path(str(conf.get("logging.dir", "logs")))
@@ -58,9 +92,7 @@ def setup_logging(config_provider: ConfigProvider) -> LoggerFactory:
     info_path.touch(exist_ok=True)
     error_path.touch(exist_ok=True)
 
-    formatter = TraceFormatter(
-        "%(asctime)s %(levelname)s [req=%(request_id)s session=%(session_id)s trace=%(trace_id)s] %(name)s %(message)s"
-    )
+    formatter = _build_formatter()
     root = logging.getLogger()
     root.handlers.clear()
     root.setLevel(str(conf.get("logging.level", "INFO")))
