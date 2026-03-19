@@ -118,4 +118,4 @@ Nacos SDK 日志相关配置放在根配置的 `nacos` 节点下：
 - [设计说明](docs/design.zh-CN.md)
 - [Design Guide](docs/design.md)
 - [变更日志](CHANGELOG.md)
-- [v0.1.2 发版说明](docs/releases/v0.1.2.md)
+- [v0.1.3 发版说明](docs/releases/v0.1.3.md)

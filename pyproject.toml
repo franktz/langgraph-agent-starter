@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "langgraph-agent-starter"
-version = "0.1.2"
+version = "0.1.3"
 description = "General-purpose LangGraph agent scaffold for platform and algorithm teams"
 requires-python = ">=3.12"
 dependencies = [

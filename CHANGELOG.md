@@ -4,13 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
-## [0.1.2] - 2026-03-20
+## [0.1.3] - 2026-03-20
 
 ### Added
 
 - Added the new `demo-chat` workflow for multi-turn chat, with both streaming and non-streaming OpenAI-compatible responses.
 - Added persisted conversation history for `demo-chat` through LangGraph state plus checkpointer-backed recovery.
-- Added release notes for `v0.1.2`.
+- Added release notes for `v0.1.3`.
 
 ### Changed
 

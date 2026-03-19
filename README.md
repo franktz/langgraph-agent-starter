@@ -126,7 +126,7 @@ For `demo-chat`, conversation continuity is scoped by the combination of
 - [Design Guide](docs/design.md)
 - [Design Guide (Chinese)](docs/design.zh-CN.md)
 - [Changelog](CHANGELOG.md)
-- [Release Notes v0.1.2](docs/releases/v0.1.2.md)
+- [Release Notes v0.1.3](docs/releases/v0.1.3.md)
 
 ## API Examples
 
