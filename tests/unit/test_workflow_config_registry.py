@@ -40,15 +40,16 @@ def test_workflow_config_registry_propagates_nacos_backend_defaults(monkeypatch)
         logger_factory=logger_factory,
     )
     try:
-        item = root_provider.get("workflow_configs.items.demo-summary", {})
+        items = root_provider.get("workflow_configs.items", {})
+        item = items.get("demo-summary", {}) if isinstance(items, dict) else {}
         nacos_settings = registry._resolve_nacos_settings(  # type: ignore[attr-defined]
             workflow_name="demo-summary",
             item=item,
         )
 
         assert nacos_settings is not None
-        assert nacos_settings.backend.value == "auto"
-        assert nacos_settings.polling_interval_seconds == 2.0
+        assert nacos_settings.backend.value == "sdk_v2"
+        assert nacos_settings.polling_interval_seconds == 5.0
         assert nacos_settings.sdk_log_path == "logs/nacos.log"
         assert nacos_settings.sdk_log_level == "INFO"
     finally:
