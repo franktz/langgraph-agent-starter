@@ -114,7 +114,7 @@ class WorkflowRuntime:
                 result = await graph.ainvoke(
                     {
                         "messages": delta_messages,
-                        "systemkey": ctx.systemkey,
+                        "sys_code": ctx.sys_code,
                         "user_id": ctx.user_id,
                     },
                     config=self._config(ctx),
@@ -157,7 +157,7 @@ class WorkflowRuntime:
             )
             with bind_llm_gateway(self._llm_gateway):
                 result = await graph.ainvoke(
-                    {"question": last_user, "systemkey": ctx.systemkey},
+                    {"question": last_user, "sys_code": ctx.sys_code},
                     config=self._config(ctx),
                 )
         if isinstance(result, dict) and result.get("__interrupt__") is not None:
@@ -365,14 +365,14 @@ class WorkflowRuntime:
         request_id = request_id_var.get("-")
         trace_tags = [
             f"workflow:{ctx.workflow}",
-            f"systemkey:{ctx.systemkey}",
+            f"sys_code:{ctx.sys_code}",
             f"request_id:{request_id}",
         ]
         config: dict[str, Any] = {
             "configurable": {"thread_id": ctx.thread_id},
             "metadata": {
                 "request_id": request_id,
-                "systemkey": ctx.systemkey,
+                "sys_code": ctx.sys_code,
                 "session_id": ctx.session_id,
                 "user_id": ctx.user_id,
                 "workflow": ctx.workflow,

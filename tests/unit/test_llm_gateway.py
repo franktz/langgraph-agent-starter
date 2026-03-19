@@ -23,11 +23,9 @@ def test_llm_gateway_build_headers_applies_apikey_and_defaults() -> None:
 
     headers = gateway._build_headers(  # type: ignore[attr-defined]
         llm_config={"apikey": "secret-token"},
-        systemkey="demo-system",
     )
 
     assert headers["Content-Type"] == "application/json"
-    assert headers["X-System-Key"] == "demo-system"
     assert headers["Authorization"] == "Bearer secret-token"
 
 
@@ -36,11 +34,9 @@ def test_llm_gateway_build_headers_merges_optional_headers() -> None:
 
     headers = gateway._build_headers(  # type: ignore[attr-defined]
         llm_config={"headers": {"X-Tenant": "tenant-a"}},
-        systemkey="demo-system",
     )
 
     assert headers["Content-Type"] == "application/json"
-    assert headers["X-System-Key"] == "demo-system"
     assert headers["X-Tenant"] == "tenant-a"
     assert "Authorization" not in headers
 
@@ -88,6 +84,6 @@ async def test_llm_gateway_stream_openai_compatible_raises_on_error_chunk() -> N
                 "model": "demo-model",
             },
             messages=[],
-            systemkey="demo-system",
+            sys_code="demo-system",
         ):
             pass

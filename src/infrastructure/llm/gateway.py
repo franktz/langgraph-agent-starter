@@ -36,7 +36,7 @@ class LlmGateway:
         llm_name: str,
         llm_config: dict[str, Any],
         messages: list[ChatMessage],
-        systemkey: str,
+        sys_code: str,
         stream_to_client: bool = True,
     ) -> AsyncIterator[str]:
         provider = str(llm_config.get("provider", "mock") or "mock")
@@ -45,7 +45,7 @@ class LlmGateway:
                 llm_name=llm_name,
                 llm_config=llm_config,
                 messages=messages,
-                systemkey=systemkey,
+                sys_code=sys_code,
                 stream_to_client=stream_to_client,
             ):
                 yield chunk
@@ -55,7 +55,7 @@ class LlmGateway:
             llm_name=llm_name,
             llm_config=llm_config,
             messages=messages,
-            systemkey=systemkey,
+            sys_code=sys_code,
             stream_to_client=stream_to_client,
         ):
             yield chunk
@@ -66,13 +66,13 @@ class LlmGateway:
         llm_name: str,
         llm_config: dict[str, Any],
         messages: list[ChatMessage],
-        systemkey: str,
+        sys_code: str,
         stream_to_client: bool,
     ) -> AsyncIterator[str]:
         user_text = next((m.content for m in reversed(messages) if m.role == "user"), "")
         prior_user_count = max(sum(1 for message in messages if message.role == "user") - 1, 0)
         model_name = str(llm_config.get("model", llm_name) or llm_name)
-        content = f"[{systemkey}/{model_name}] {user_text or '(empty)'}"
+        content = f"[{sys_code}/{model_name}] {user_text or '(empty)'}"
         if prior_user_count:
             content = f"{content} (history_users={prior_user_count})"
         for index, token in enumerate(content.split(" ")):
@@ -89,7 +89,7 @@ class LlmGateway:
         llm_name: str,
         llm_config: dict[str, Any],
         messages: list[ChatMessage],
-        systemkey: str,
+        sys_code: str,
         stream_to_client: bool,
     ) -> AsyncIterator[str]:
         base_url = str(llm_config.get("base_url", "") or "").rstrip("/")
@@ -112,7 +112,7 @@ class LlmGateway:
             payload.update({str(key): value for key, value in body.items()})
         retry_config = llm_config.get("retry")
 
-        headers = self._build_headers(llm_config=llm_config, systemkey=systemkey)
+        headers = self._build_headers(llm_config=llm_config)
         stream_error: HttpClientResponseError | None = None
         try:
             async with self._http_client.stream(
@@ -166,8 +166,8 @@ class LlmGateway:
             extra={"llm_name": llm_name, "model": model_name},
         )
 
-    def _build_headers(self, *, llm_config: dict[str, Any], systemkey: str) -> dict[str, str]:
-        headers = {"Content-Type": "application/json", "X-System-Key": systemkey}
+    def _build_headers(self, *, llm_config: dict[str, Any]) -> dict[str, str]:
+        headers = {"Content-Type": "application/json"}
         configured_headers = llm_config.get("headers")
         if isinstance(configured_headers, Mapping):
             headers.update(

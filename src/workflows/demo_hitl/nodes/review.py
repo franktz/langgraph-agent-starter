@@ -5,14 +5,14 @@ import logging
 from langgraph.types import interrupt
 from workflows.common.log_utils import config_metadata, preview_text
 
-logger = logging.getLogger("workflows.demo_hitl.review")
+logger = logging.getLogger("workflows.demo-hitl.review")
 
 
 async def human_review(state: dict, *, config) -> dict[str, str]:
     metadata = config_metadata(config)
     draft = str(state.get("draft") or "")
     logger.info(
-        "[HITL] workflow=demo_hitl session=%s -> human_review:wait draft=%r len=%s",
+        "[HITL] workflow=demo-hitl session=%s -> human_review:wait draft=%r len=%s",
         metadata.get("session_id", "-"),
         preview_text(draft),
         len(draft),
@@ -26,7 +26,7 @@ async def human_review(state: dict, *, config) -> dict[str, str]:
     final = payload.get("final") if isinstance(payload, dict) else None
     final_text = str(final or state.get("draft") or "")
     logger.info(
-        "[HITL] workflow=demo_hitl session=%s -> human_review:resume final=%r len=%s",
+        "[HITL] workflow=demo-hitl session=%s -> human_review:resume final=%r len=%s",
         metadata.get("session_id", "-"),
         preview_text(final_text),
         len(final_text),

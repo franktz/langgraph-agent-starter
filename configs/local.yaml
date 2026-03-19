@@ -36,7 +36,7 @@ langfuse:
 api:
   auth:
     enabled: true
-    systemkeys:
+    sys_codes:
       - demo-system
       - real-system
 
@@ -50,15 +50,15 @@ workflow_configs:
       polling_interval_seconds: 2
       data_id_template: "langgraph-agent-starter.workflow.{workflow}.yaml"
   items:
-    demo_chat:
-      local_path: configs/workflows/demo_chat.yaml
+    demo-chat:
+      local_path: configs/workflows/demo-chat.yaml
       nacos:
-        data_id: langgraph-agent-starter.workflow.demo_chat.yaml
-    demo_hitl:
-      local_path: configs/workflows/demo_hitl.yaml
+        data_id: langgraph-agent-starter.workflow.demo-chat.yaml
+    demo-hitl:
+      local_path: configs/workflows/demo-hitl.yaml
       nacos:
-        data_id: langgraph-agent-starter.workflow.demo_hitl.yaml
-    demo_summary:
-      local_path: configs/workflows/demo_summary.yaml
+        data_id: langgraph-agent-starter.workflow.demo-hitl.yaml
+    demo-summary:
+      local_path: configs/workflows/demo-summary.yaml
       nacos:
-        data_id: langgraph-agent-starter.workflow.demo_summary.yaml
+        data_id: langgraph-agent-starter.workflow.demo-summary.yaml

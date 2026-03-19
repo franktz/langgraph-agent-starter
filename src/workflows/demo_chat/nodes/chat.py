@@ -11,7 +11,7 @@ from infrastructure.llm.gateway import ChatMessage
 from workflows.common.llms import resolve_workflow_llm
 from workflows.common.log_utils import config_metadata, preview_text
 
-logger = logging.getLogger("workflows.demo_chat.chat")
+logger = logging.getLogger("workflows.demo-chat.chat")
 
 
 async def chat(
@@ -21,7 +21,7 @@ async def chat(
     workflow_config: DynamicConfigProvider | None,
 ) -> dict[str, Any]:
     metadata = config_metadata(config)
-    systemkey = str(state.get("systemkey", "default-system"))
+    sys_code = str(state.get("sys_code", "default-system"))
     llm = resolve_workflow_llm(
         workflow_config=workflow_config,
     )
@@ -35,7 +35,7 @@ async def chat(
 
     last_user = next((message.content for message in reversed(upstream_messages) if message.role == "user"), "")
     logger.info(
-        "[NODE] workflow=demo_chat session=%s -> chat:start history=%s llm=%s last_user=%r",
+        "[NODE] workflow=demo-chat session=%s -> chat:start history=%s llm=%s last_user=%r",
         metadata.get("session_id", "-"),
         len(upstream_messages),
         llm.name,
@@ -43,7 +43,7 @@ async def chat(
         extra={
             "session_id": metadata.get("session_id", "-"),
             "user_id": metadata.get("user_id"),
-            "systemkey": systemkey,
+            "sys_code": sys_code,
             "llm_name": llm.name,
             "history_messages": len(upstream_messages),
             "question_preview": preview_text(last_user),
@@ -54,13 +54,13 @@ async def chat(
     async for token in llm_gateway.stream_chat(
         llm_name=llm.name,
         llm_config=llm.config,
-        systemkey=systemkey,
+        sys_code=sys_code,
         messages=upstream_messages,
     ):
         chunks.append(token)
     answer = "".join(chunks)
     logger.info(
-        "[NODE] workflow=demo_chat session=%s -> chat:done answer=%r len=%s",
+        "[NODE] workflow=demo-chat session=%s -> chat:done answer=%r len=%s",
         metadata.get("session_id", "-"),
         preview_text(answer),
         len(answer),

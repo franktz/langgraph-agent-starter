@@ -5,6 +5,6 @@ from typing import TypedDict
 
 class DemoHitlState(TypedDict, total=False):
     question: str
-    systemkey: str
+    sys_code: str
     draft: str
     final: str

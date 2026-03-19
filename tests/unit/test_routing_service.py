@@ -6,9 +6,9 @@ from workflows.registry import WorkflowRegistry
 def test_routing_service_resolves_workflow() -> None:
     service = RoutingService(workflow_registry=WorkflowRegistry())
 
-    route = service.resolve(model="demo_summary")
+    route = service.resolve(model="demo-summary")
 
-    assert route.workflow == "demo_summary"
+    assert route.workflow == "demo-summary"
 
 
 def test_routing_service_requires_model() -> None:

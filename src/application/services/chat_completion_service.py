@@ -4,7 +4,7 @@ import time
 import uuid
 from collections.abc import AsyncIterator
 
-from domain.auth.errors import InvalidSystemKeyError
+from domain.auth.errors import InvalidSysCodeError
 from domain.auth.models import RequestContext
 from infrastructure.config.provider import ConfigProvider
 from infrastructure.logging.factory import LoggerFactory
@@ -55,20 +55,20 @@ class ChatCompletionService:
         self,
         *,
         req: ChatCompletionRequest,
-        systemkey: str | None,
+        sys_code: str | None,
         session_id: str | None,
         user_id: str | None,
     ) -> RequestContext:
         auth_enabled = bool(self._config_provider.get("api.auth.enabled", False))
-        effectivesystemkey = systemkey or "default-system"
+        effective_sys_code = sys_code or "default-system"
         if auth_enabled:
-            allowed_systemkeys = self._config_provider.get("api.auth.systemkeys", [])
-            keys = {str(item) for item in allowed_systemkeys if isinstance(item, str)}
-            if not systemkey or effectivesystemkey not in keys:
-                raise InvalidSystemKeyError(f"unauthorized systemkey: {effectivesystemkey}")
+            allowed_sys_codes = self._config_provider.get("api.auth.sys_codes", [])
+            keys = {str(item) for item in allowed_sys_codes if isinstance(item, str)}
+            if not sys_code or effective_sys_code not in keys:
+                raise InvalidSysCodeError(f"unauthorized sys_code: {effective_sys_code}")
         route = self._routing_service.resolve(model=req.model)
         return RequestContext(
-            systemkey=effectivesystemkey,
+            sys_code=effective_sys_code,
             session_id=session_id or uuid.uuid4().hex,
             user_id=user_id,
             workflow=route.workflow,

@@ -32,6 +32,6 @@ publish_config() {
 }
 
 publish_config "langgraph-agent-starter.yaml" "DEFAULT_GROUP" "configs/local.yaml"
-publish_config "langgraph-agent-starter.workflow.demo_chat.yaml" "LANGGRAPH_AGENT_STARTER_WORKFLOW" "configs/workflows/demo_chat.yaml"
-publish_config "langgraph-agent-starter.workflow.demo_hitl.yaml" "LANGGRAPH_AGENT_STARTER_WORKFLOW" "configs/workflows/demo_hitl.yaml"
-publish_config "langgraph-agent-starter.workflow.demo_summary.yaml" "LANGGRAPH_AGENT_STARTER_WORKFLOW" "configs/workflows/demo_summary.yaml"
+publish_config "langgraph-agent-starter.workflow.demo-chat.yaml" "LANGGRAPH_AGENT_STARTER_WORKFLOW" "configs/workflows/demo-chat.yaml"
+publish_config "langgraph-agent-starter.workflow.demo-hitl.yaml" "LANGGRAPH_AGENT_STARTER_WORKFLOW" "configs/workflows/demo-hitl.yaml"
+publish_config "langgraph-agent-starter.workflow.demo-summary.yaml" "LANGGRAPH_AGENT_STARTER_WORKFLOW" "configs/workflows/demo-summary.yaml"

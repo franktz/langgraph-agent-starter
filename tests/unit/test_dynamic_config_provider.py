@@ -18,7 +18,7 @@ class _StubBackend:
 
 
 def test_dynamic_config_provider_is_importable_for_other_projects() -> None:
-    provider = DynamicConfigProvider(local_yaml_path="configs/workflows/demo_summary.yaml")
+    provider = DynamicConfigProvider(local_yaml_path="configs/workflows/demo-summary.yaml")
     try:
         provider.load_initial(None)
 
@@ -39,7 +39,7 @@ def test_dynamic_config_provider_loads_explicit_http_backend_from_env(monkeypatc
         lambda _settings: _StubBackend(initial_content=None),
     )
 
-    provider = DynamicConfigProvider(local_yaml_path="configs/workflows/demo_summary.yaml")
+    provider = DynamicConfigProvider(local_yaml_path="configs/workflows/demo-summary.yaml")
     try:
         provider.load_from_env(default_data_id="demo.yaml")
 
@@ -59,7 +59,7 @@ def test_dynamic_config_provider_applies_backend_updates(monkeypatch) -> None:  
     )
     monkeypatch.setattr(provider_module, "create_nacos_backend", lambda _settings: backend)
 
-    provider = DynamicConfigProvider(local_yaml_path="configs/workflows/demo_summary.yaml")
+    provider = DynamicConfigProvider(local_yaml_path="configs/workflows/demo-summary.yaml")
     try:
         provider.load_initial(
             NacosSettings(

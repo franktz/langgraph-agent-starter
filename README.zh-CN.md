@@ -26,8 +26,8 @@
 ## 关键运行约定
 
 - OpenAI 风格请求里的 `model` 为必填，并直接映射到 workflow；缺失时返回 `400 missing_model`
-- `systemkey` 只负责调用方身份与业务隔离，不再参与 LLM 选型
-- 当 `api.auth.enabled=true` 时，`systemkey` 必须命中 `api.auth.systemkeys` 白名单，否则返回 `401 invalid_system_key`
+- `sys_code` 只负责调用方身份与业务隔离，不再参与 LLM 选型
+- 当 `api.auth.enabled=true` 时，请求头 `sysCode` 必须命中 `api.auth.sys_codes` 白名单，否则返回 `401 invalid_sys_code`
 - 当前示例里，每个 workflow 都在自己的配置中维护 `llm.default`
   - 常用字段包括 `provider`、`base_url`、`apikey`、`headers`、`model`、`max_tokens`、`timeout`、`retry`
   - `timeout`、`retry.min_wait`、`retry.max_wait` 都使用毫秒
@@ -78,9 +78,9 @@ uv run --python 3.12 ruff format .
 
 - 根配置：`configs/local.yaml`
 - Workflow 本地 fallback 配置：
-  - `configs/workflows/demo_chat.yaml`
-  - `configs/workflows/demo_hitl.yaml`
-  - `configs/workflows/demo_summary.yaml`
+- `configs/workflows/demo-chat.yaml`
+- `configs/workflows/demo-hitl.yaml`
+- `configs/workflows/demo-summary.yaml`
 
 默认示例配置可以安全公开：
 
@@ -90,14 +90,14 @@ uv run --python 3.12 ruff format .
 
 ## 内置示例 Workflow
 
-- `demo_chat`
+- `demo-chat`
   基于 LangGraph state 和 checkpointer 的多轮聊天流程。
-- `demo_hitl`
+- `demo-hitl`
   先生成草稿，再进入人工审核中断。
-- `demo_summary`
+- `demo-summary`
   一个不带中断的简单总结流程。
 
-其中 `demo_chat` 的会话连续性由 `model`、`systemkey`、`user-id`、`session-id` 共同决定；在同一 workflow 下复用同一组 `user-id` 和 `session-id`，就会延续之前的聊天历史。
+其中 `demo-chat` 的会话连续性由 `model`、`sys_code`、`user-id`、`session-id` 共同决定；在同一 workflow 下复用同一组 `user-id` 和 `session-id`，就会延续之前的聊天历史。
 
 ## 文档入口
 

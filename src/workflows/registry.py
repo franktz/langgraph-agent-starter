@@ -11,21 +11,21 @@ class WorkflowRegistry:
     def __init__(self, *, workflow_config_registry: WorkflowConfigRegistry | None = None) -> None:
         self._workflow_config_registry = workflow_config_registry
         self._specs = {
-            "demo_chat": WorkflowSpec(
-                name="demo_chat",
+            "demo-chat": WorkflowSpec(
+                name="demo-chat",
                 description="Multi-turn chat workflow backed by LangGraph state",
                 supports_hitl=False,
                 supports_conversation=True,
                 builder=build_demo_chat,
             ),
-            "demo_hitl": WorkflowSpec(
-                name="demo_hitl",
+            "demo-hitl": WorkflowSpec(
+                name="demo-hitl",
                 description="Draft workflow with human review interrupt",
                 supports_hitl=True,
                 builder=build_demo_hitl,
             ),
-            "demo_summary": WorkflowSpec(
-                name="demo_summary",
+            "demo-summary": WorkflowSpec(
+                name="demo-summary",
                 description="Summary workflow without interrupt",
                 supports_hitl=False,
                 builder=build_demo_summary,

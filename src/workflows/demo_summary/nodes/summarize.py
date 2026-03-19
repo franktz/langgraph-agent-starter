@@ -8,7 +8,7 @@ from infrastructure.llm.gateway import ChatMessage
 from workflows.common.llms import resolve_workflow_llm
 from workflows.common.log_utils import config_metadata, preview_text
 
-logger = logging.getLogger("workflows.demo_summary.summarize")
+logger = logging.getLogger("workflows.demo-summary.summarize")
 
 
 async def summarize(
@@ -18,7 +18,7 @@ async def summarize(
     workflow_config: DynamicConfigProvider | None,
 ) -> dict[str, str]:
     metadata = config_metadata(config)
-    systemkey = str(state.get("systemkey", "default-system"))
+    sys_code = str(state.get("sys_code", "default-system"))
     llm = resolve_workflow_llm(
         workflow_config=workflow_config,
     )
@@ -30,14 +30,14 @@ async def summarize(
         suffix = str(workflow_config.get("prompts.summary_suffix", "") or "")
     effective_question = " ".join(part for part in [prefix, question, suffix] if part)
     logger.info(
-        "[NODE] workflow=demo_summary session=%s -> summarize:start question=%r llm=%s",
+        "[NODE] workflow=demo-summary session=%s -> summarize:start question=%r llm=%s",
         metadata.get("session_id", "-"),
         preview_text(question),
         llm.name,
         extra={
             "session_id": metadata.get("session_id", "-"),
             "user_id": metadata.get("user_id"),
-            "systemkey": systemkey,
+            "sys_code": sys_code,
             "llm_name": llm.name,
             "question_preview": preview_text(question),
         },
@@ -47,13 +47,13 @@ async def summarize(
     async for token in llm_gateway.stream_chat(
         llm_name=llm.name,
         llm_config=llm.config,
-        systemkey=systemkey,
+        sys_code=sys_code,
         messages=[ChatMessage(role="user", content=effective_question)],
     ):
         chunks.append(token)
     summary = "".join(chunks)
     logger.info(
-        "[NODE] workflow=demo_summary session=%s -> summarize:done summary=%r len=%s",
+        "[NODE] workflow=demo-summary session=%s -> summarize:done summary=%r len=%s",
         metadata.get("session_id", "-"),
         preview_text(summary),
         len(summary),

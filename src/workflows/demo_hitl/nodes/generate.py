@@ -8,7 +8,7 @@ from infrastructure.llm.gateway import ChatMessage
 from workflows.common.llms import resolve_workflow_llm
 from workflows.common.log_utils import config_metadata, preview_text
 
-logger = logging.getLogger("workflows.demo_hitl.generate")
+logger = logging.getLogger("workflows.demo-hitl.generate")
 
 
 async def generate_draft(
@@ -18,7 +18,7 @@ async def generate_draft(
     workflow_config: DynamicConfigProvider | None,
 ) -> dict[str, str]:
     metadata = config_metadata(config)
-    systemkey = str(state.get("systemkey", "default-system"))
+    sys_code = str(state.get("sys_code", "default-system"))
     llm = resolve_workflow_llm(
         workflow_config=workflow_config,
     )
@@ -28,14 +28,14 @@ async def generate_draft(
         prompt_prefix = str(workflow_config.get("prompts.draft_prefix", "") or "")
     effective_question = " ".join(part for part in [prompt_prefix, question] if part)
     logger.info(
-        "[NODE] workflow=demo_hitl session=%s -> generate_draft:start question=%r llm=%s",
+        "[NODE] workflow=demo-hitl session=%s -> generate_draft:start question=%r llm=%s",
         metadata.get("session_id", "-"),
         preview_text(question),
         llm.name,
         extra={
             "session_id": metadata.get("session_id", "-"),
             "user_id": metadata.get("user_id"),
-            "systemkey": systemkey,
+            "sys_code": sys_code,
             "llm_name": llm.name,
             "question_preview": preview_text(question),
         },
@@ -45,13 +45,13 @@ async def generate_draft(
     async for token in llm_gateway.stream_chat(
         llm_name=llm.name,
         llm_config=llm.config,
-        systemkey=systemkey,
+        sys_code=sys_code,
         messages=[ChatMessage(role="user", content=effective_question)],
     ):
         chunks.append(token)
     draft = "".join(chunks)
     logger.info(
-        "[NODE] workflow=demo_hitl session=%s -> generate_draft:done draft=%r len=%s",
+        "[NODE] workflow=demo-hitl session=%s -> generate_draft:done draft=%r len=%s",
         metadata.get("session_id", "-"),
         preview_text(draft),
         len(draft),

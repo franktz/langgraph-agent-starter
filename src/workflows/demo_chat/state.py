@@ -4,6 +4,6 @@ from langgraph.graph import MessagesState
 
 
 class DemoChatState(MessagesState, total=False):
-    systemkey: str
+    sys_code: str
     user_id: str | None
     answer: str

@@ -13,22 +13,22 @@ def test_v1_models_lists_demo_workflows(client: TestClient) -> None:
 
     assert response.status_code == 200
     ids = [item["id"] for item in response.json()["data"]]
-    assert ids == ["demo_chat", "demo_hitl", "demo_summary"]
+    assert ids == ["demo-chat", "demo-hitl", "demo-summary"]
 
 
 def test_chat_completions_non_stream_summary_returns_text(client: TestClient) -> None:
     response = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_summary",
+            "model": "demo-summary",
             "messages": [{"role": "user", "content": "Summarize the launch checklist"}],
         },
-        headers={"systemkey": "demo-system", "session-id": "summary-session", "user-id": "u1"},
+        headers={"sysCode": "demo-system", "session-id": "summary-session", "user-id": "u1"},
     )
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["model"] == "demo_summary"
+    assert payload["model"] == "demo-summary"
     assert payload["choices"][0]["finish_reason"] == "stop"
     assert payload["choices"][0]["message"]["content"]
     assert "[Nacos Summary Template Updated] Dynamic config is live:" in payload["choices"][0]["message"]["content"]
@@ -41,11 +41,11 @@ def test_chat_completions_stream_hitl_returns_tool_call(client: TestClient) -> N
         "POST",
         "/v1/chat/completions",
         json={
-            "model": "demo_hitl",
+            "model": "demo-hitl",
             "messages": [{"role": "user", "content": "Write a release note"}],
             "stream": True,
         },
-        headers={"systemkey": "demo-system", "session-id": "hitl-session", "user-id": "u2"},
+        headers={"sysCode": "demo-system", "session-id": "hitl-session", "user-id": "u2"},
     ) as response:
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/event-stream")
@@ -74,11 +74,11 @@ def test_chat_completions_stream_summary_returns_multiple_content_chunks(client:
         "POST",
         "/v1/chat/completions",
         json={
-            "model": "demo_summary",
+            "model": "demo-summary",
             "messages": [{"role": "user", "content": "Summarize the launch checklist"}],
             "stream": True,
         },
-        headers={"systemkey": "demo-system", "session-id": "summary-stream-session", "user-id": "u4"},
+        headers={"sysCode": "demo-system", "session-id": "summary-stream-session", "user-id": "u4"},
     ) as response:
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/event-stream")
@@ -107,10 +107,10 @@ def test_chat_completions_non_stream_chat_supports_multi_turn_history(client: Te
     first = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_chat",
+            "model": "demo-chat",
             "messages": [{"role": "user", "content": "Hello there"}],
         },
-        headers={"systemkey": "demo-system", "session-id": "chat-session", "user-id": "chat-user"},
+        headers={"sysCode": "demo-system", "session-id": "chat-session", "user-id": "chat-user"},
     )
 
     assert first.status_code == 200
@@ -120,10 +120,10 @@ def test_chat_completions_non_stream_chat_supports_multi_turn_history(client: Te
     second = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_chat",
+            "model": "demo-chat",
             "messages": [{"role": "user", "content": "What did I just say?"}],
         },
-        headers={"systemkey": "demo-system", "session-id": "chat-session", "user-id": "chat-user"},
+        headers={"sysCode": "demo-system", "session-id": "chat-session", "user-id": "chat-user"},
     )
 
     assert second.status_code == 200
@@ -138,10 +138,10 @@ def test_chat_completions_chat_reuses_persisted_answer_for_replayed_history(clie
     first = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_chat",
+            "model": "demo-chat",
             "messages": [{"role": "user", "content": "Replay-safe question"}],
         },
-        headers={"systemkey": "demo-system", "session-id": "chat-replay-session", "user-id": "chat-user"},
+        headers={"sysCode": "demo-system", "session-id": "chat-replay-session", "user-id": "chat-user"},
     )
 
     assert first.status_code == 200
@@ -150,13 +150,13 @@ def test_chat_completions_chat_reuses_persisted_answer_for_replayed_history(clie
     replay = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_chat",
+            "model": "demo-chat",
             "messages": [
                 {"role": "user", "content": "Replay-safe question"},
                 {"role": "assistant", "content": assistant_message},
             ],
         },
-        headers={"systemkey": "demo-system", "session-id": "chat-replay-session", "user-id": "chat-user"},
+        headers={"sysCode": "demo-system", "session-id": "chat-replay-session", "user-id": "chat-user"},
     )
 
     assert replay.status_code == 200
@@ -167,20 +167,20 @@ def test_chat_completions_chat_history_isolated_by_user_and_workflow(client: Tes
     warmup = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_chat",
+            "model": "demo-chat",
             "messages": [{"role": "user", "content": "Remember me"}],
         },
-        headers={"systemkey": "demo-system", "session-id": "shared-session", "user-id": "user-a"},
+        headers={"sysCode": "demo-system", "session-id": "shared-session", "user-id": "user-a"},
     )
     assert warmup.status_code == 200
 
     different_user = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_chat",
+            "model": "demo-chat",
             "messages": [{"role": "user", "content": "Do you have prior context?"}],
         },
-        headers={"systemkey": "demo-system", "session-id": "shared-session", "user-id": "user-b"},
+        headers={"sysCode": "demo-system", "session-id": "shared-session", "user-id": "user-b"},
     )
 
     assert different_user.status_code == 200
@@ -191,14 +191,14 @@ def test_chat_completions_chat_history_isolated_by_user_and_workflow(client: Tes
     different_workflow = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_summary",
+            "model": "demo-summary",
             "messages": [{"role": "user", "content": "Same session, different workflow"}],
         },
-        headers={"systemkey": "demo-system", "session-id": "shared-session", "user-id": "user-a"},
+        headers={"sysCode": "demo-system", "session-id": "shared-session", "user-id": "user-a"},
     )
 
     assert different_workflow.status_code == 200
-    assert different_workflow.json()["model"] == "demo_summary"
+    assert different_workflow.json()["model"] == "demo-summary"
 
 
 def test_chat_completions_stream_chat_returns_multiple_content_chunks(client: TestClient) -> None:
@@ -206,11 +206,11 @@ def test_chat_completions_stream_chat_returns_multiple_content_chunks(client: Te
         "POST",
         "/v1/chat/completions",
         json={
-            "model": "demo_chat",
+            "model": "demo-chat",
             "messages": [{"role": "user", "content": "Stream this answer"}],
             "stream": True,
         },
-        headers={"systemkey": "demo-system", "session-id": "chat-stream-session", "user-id": "chat-user"},
+        headers={"sysCode": "demo-system", "session-id": "chat-stream-session", "user-id": "chat-user"},
     ) as response:
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/event-stream")
@@ -239,10 +239,10 @@ def test_chat_completions_hitl_resume_returns_final_content(client: TestClient) 
     first = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_hitl",
+            "model": "demo-hitl",
             "messages": [{"role": "user", "content": "Write a release note"}],
         },
-        headers={"systemkey": "demo-system", "session-id": "resume-session", "user-id": "u3"},
+        headers={"sysCode": "demo-system", "session-id": "resume-session", "user-id": "u3"},
     )
     assert first.status_code == 200
     tool_call = first.json()["choices"][0]["message"]["tool_calls"][0]
@@ -255,7 +255,7 @@ def test_chat_completions_hitl_resume_returns_final_content(client: TestClient) 
     second = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_hitl",
+            "model": "demo-hitl",
             "messages": [
                 {"role": "user", "content": "Write a release note"},
                 {
@@ -270,7 +270,7 @@ def test_chat_completions_hitl_resume_returns_final_content(client: TestClient) 
                 },
             ],
         },
-        headers={"systemkey": "demo-system", "session-id": "resume-session", "user-id": "u3"},
+        headers={"sysCode": "demo-system", "session-id": "resume-session", "user-id": "u3"},
     )
 
     assert second.status_code == 200
@@ -287,7 +287,7 @@ def test_chat_completions_rejects_unknown_model(client: TestClient) -> None:
             "model": "missing-workflow",
             "messages": [{"role": "user", "content": "hello"}],
         },
-        headers={"systemkey": "demo-system"},
+        headers={"sysCode": "demo-system"},
     )
 
     assert response.status_code == 400
@@ -302,7 +302,7 @@ def test_chat_completions_rejects_missing_model(client: TestClient) -> None:
         json={
             "messages": [{"role": "user", "content": "hello"}],
         },
-        headers={"systemkey": "demo-system"},
+        headers={"sysCode": "demo-system"},
     )
 
     assert response.status_code == 400
@@ -311,27 +311,27 @@ def test_chat_completions_rejects_missing_model(client: TestClient) -> None:
     assert payload["error"]["code"] == "missing_model"
 
 
-def test_chat_completions_rejects_unauthorized_systemkey(client: TestClient) -> None:
+def test_chat_completions_rejects_unauthorized_sys_code(client: TestClient) -> None:
     response = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_summary",
+            "model": "demo-summary",
             "messages": [{"role": "user", "content": "hello"}],
         },
-        headers={"systemkey": "unknown-system"},
+        headers={"sysCode": "unknown-system"},
     )
 
     assert response.status_code == 401
     payload = response.json()
     assert payload["error"]["type"] == "authentication_error"
-    assert payload["error"]["code"] == "invalid_system_key"
+    assert payload["error"]["code"] == "invalid_sys_code"
 
 
-def test_chat_completions_rejects_missing_systemkey_when_auth_enabled(client: TestClient) -> None:
+def test_chat_completions_rejects_missing_sys_code_when_auth_enabled(client: TestClient) -> None:
     response = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_summary",
+            "model": "demo-summary",
             "messages": [{"role": "user", "content": "hello"}],
         },
     )
@@ -339,14 +339,14 @@ def test_chat_completions_rejects_missing_systemkey_when_auth_enabled(client: Te
     assert response.status_code == 401
     payload = response.json()
     assert payload["error"]["type"] == "authentication_error"
-    assert payload["error"]["code"] == "invalid_system_key"
+    assert payload["error"]["code"] == "invalid_sys_code"
 
 
 def test_chat_completions_stream_openai_passthroughs_raw_events(
     client: TestClient,
     monkeypatch,
 ) -> None:
-    provider = client.app.state.container.workflow_config_registry.get_provider("demo_chat")
+    provider = client.app.state.container.workflow_config_registry.get_provider("demo-chat")
     provider.conf._value["llm"]["default"].update(  # type: ignore[attr-defined]
         {
             "provider": "openai_compatible",
@@ -375,11 +375,11 @@ def test_chat_completions_stream_openai_passthroughs_raw_events(
         "POST",
         "/v1/chat/completions",
         json={
-            "model": "demo_chat",
+            "model": "demo-chat",
             "messages": [{"role": "user", "content": "hello"}],
             "stream": True,
         },
-        headers={"systemkey": "demo-system", "session-id": "stream-error-session", "user-id": "u5"},
+        headers={"sysCode": "demo-system", "session-id": "stream-error-session", "user-id": "u5"},
     ) as response:
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/event-stream")
@@ -397,7 +397,7 @@ def test_chat_completions_stream_openai_startup_failure_returns_json_error(
     client: TestClient,
     monkeypatch,
 ) -> None:
-    provider = client.app.state.container.workflow_config_registry.get_provider("demo_chat")
+    provider = client.app.state.container.workflow_config_registry.get_provider("demo-chat")
     provider.conf._value["llm"]["default"].update(  # type: ignore[attr-defined]
         {
             "provider": "openai_compatible",
@@ -417,11 +417,11 @@ def test_chat_completions_stream_openai_startup_failure_returns_json_error(
     response = client.post(
         "/v1/chat/completions",
         json={
-            "model": "demo_chat",
+            "model": "demo-chat",
             "messages": [{"role": "user", "content": "hello"}],
             "stream": True,
         },
-        headers={"systemkey": "demo-system", "session-id": "stream-startup-session", "user-id": "u6"},
+        headers={"sysCode": "demo-system", "session-id": "stream-startup-session", "user-id": "u6"},
     )
 
     assert response.status_code == 502

@@ -25,10 +25,10 @@ between platform engineering concerns and workflow implementation.
 
 - The OpenAI-style `model` field is required and maps directly to a workflow;
   missing `model` returns `400 missing_model`
-- `systemkey` is used for caller identity and business isolation only; it no
+- `sys_code` is used for caller identity and business isolation only; it no
   longer selects an LLM configuration
-- When `api.auth.enabled=true`, `systemkey` must be included in
-  `api.auth.systemkeys`, otherwise the API returns `401 invalid_system_key`
+- When `api.auth.enabled=true`, `sysCode` must be included in
+`api.auth.sys_codes`, otherwise the API returns `401 invalid_sys_code`
 - Each workflow owns its upstream LLM config under `llm.default`
   - common fields include `provider`, `base_url`, `apikey`, `headers`,
     `model`, `max_tokens`, `timeout`, and `retry`
@@ -81,9 +81,9 @@ uv run --python 3.12 ruff format .
 
 - Root config: `configs/local.yaml`
 - Workflow local fallback config:
-  - `configs/workflows/demo_chat.yaml`
-  - `configs/workflows/demo_hitl.yaml`
-  - `configs/workflows/demo_summary.yaml`
+- `configs/workflows/demo-chat.yaml`
+- `configs/workflows/demo-hitl.yaml`
+- `configs/workflows/demo-summary.yaml`
 
 The default sample configuration is safe to publish:
 
@@ -93,15 +93,15 @@ The default sample configuration is safe to publish:
 
 ## Included Demo Workflows
 
-- `demo_chat`
+- `demo-chat`
   Multi-turn chat workflow backed by LangGraph state and checkpointer.
-- `demo_hitl`
+- `demo-hitl`
   Draft generation followed by human review interrupt.
-- `demo_summary`
+- `demo-summary`
   Simple summarization flow without interrupt.
 
-For `demo_chat`, conversation continuity is scoped by the combination of
-`model`, `systemkey`, `user-id`, and `session-id`. Reusing the same
+For `demo-chat`, conversation continuity is scoped by the combination of
+`model`, `sys_code`, `user-id`, and `session-id`. Reusing the same
 `user-id` + `session-id` pair under the same workflow continues the chat.
 
 ## Documentation

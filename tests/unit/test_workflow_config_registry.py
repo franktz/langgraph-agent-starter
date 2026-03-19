@@ -13,7 +13,7 @@ def test_workflow_config_registry_loads_demo_hitl_config() -> None:
         logger_factory=logger_factory,
     )
     try:
-        provider = registry.get_provider("demo_hitl")
+        provider = registry.get_provider("demo-hitl")
 
         assert provider.get("prompts.draft_prefix") == (
             "[Nacos HITL Template] Please produce a release-ready draft before human review."
@@ -38,9 +38,9 @@ def test_workflow_config_registry_propagates_nacos_backend_defaults(monkeypatch)
         logger_factory=logger_factory,
     )
     try:
-        item = root_provider.get("workflow_configs.items.demo_summary", {})
+        item = root_provider.get("workflow_configs.items.demo-summary", {})
         nacos_settings = registry._resolve_nacos_settings(  # type: ignore[attr-defined]
-            workflow_name="demo_summary",
+            workflow_name="demo-summary",
             item=item,
         )
 

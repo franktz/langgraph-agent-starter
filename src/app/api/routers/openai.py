@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from domain.auth.errors import InvalidSystemKeyError
+from domain.auth.errors import InvalidSysCodeError
 from domain.workflows.errors import MissingWorkflowModelError
 from infrastructure.http.errors import HttpClientResponseError, HttpClientTimeoutError
 from infrastructure.logging.factory import request_id_var, session_id_var, trace_id_var
@@ -84,37 +84,37 @@ async def list_models(request: Request) -> dict[str, object]:
 async def chat_completions(
     req: ChatCompletionRequest,
     request: Request,
-    systemkey: str | None = Header(default=None, alias="systemkey"),
+    sys_code: str | None = Header(default=None, alias="sysCode"),
     session_id: str | None = Header(default=None, alias="session-id"),
     user_id: str | None = Header(default=None, alias="user-id"),
 ):
     logger.info(
-        "[HTTP] HTTP request received request_id=%s session=%s -> POST /v1/chat/completions model=%s stream=%s systemkey=%s messages=%s",
+        "[HTTP] HTTP request received request_id=%s session=%s -> POST /v1/chat/completions model=%s stream=%s sysCode=%s messages=%s",
         getattr(request.state, "request_id", "-"),
         session_id or "-",
         req.model or "-",
         bool(req.stream),
-        systemkey or "-",
+        sys_code or "-",
         len(req.messages),
     )
     service = request.app.state.container.chat_completion_service
     try:
         ctx = service.resolve_request_context(
             req=req,
-            systemkey=systemkey,
+            sys_code=sys_code,
             session_id=session_id,
             user_id=user_id,
         )
         request.state.session_id = ctx.session_id
         session_id_var.set(ctx.session_id)
         trace_id_var.set(ctx.session_id)
-    except InvalidSystemKeyError as exc:
+    except InvalidSysCodeError as exc:
         return _error_response(
             request=request,
             status_code=401,
             error_message=str(exc),
             error_type="authentication_error",
-            error_code="invalid_system_key",
+            error_code="invalid_sys_code",
             session_id=session_id,
         )
     except MissingWorkflowModelError as exc:

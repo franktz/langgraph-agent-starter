@@ -38,10 +38,10 @@ def test_runtime_langfuse_metadata_contains_filterable_fields() -> None:
     )
 
     ctx = RequestContext(
-        systemkey="full-system-key-demo",
+        sys_code="full-system-key-demo",
         session_id="session-123",
         user_id="user-456",
-        workflow="demo_summary",
+        workflow="demo-summary",
     )
 
     token = request_id_var.set("req-789")
@@ -52,16 +52,16 @@ def test_runtime_langfuse_metadata_contains_filterable_fields() -> None:
     metadata = config["metadata"]
 
     assert metadata["request_id"] == "req-789"
-    assert metadata["systemkey"] == "full-system-key-demo"
+    assert metadata["sys_code"] == "full-system-key-demo"
     assert metadata["session_id"] == "session-123"
     assert metadata["user_id"] == "user-456"
-    assert metadata["workflow"] == "demo_summary"
+    assert metadata["workflow"] == "demo-summary"
     assert metadata["langfuse_request_id"] == "req-789"
     assert metadata["langfuse_session_id"] == "session-123"
     assert metadata["langfuse_user_id"] == "user-456"
     assert config["configurable"]["thread_id"] == (
-        "workflow=demo_summary|systemkey=full-system-key-demo|user_id=user-456|session_id=session-123"
+        "workflow=demo-summary|sys_code=full-system-key-demo|user_id=user-456|session_id=session-123"
     )
     assert "request_id:req-789" in metadata["langfuse_tags"]
-    assert "systemkey:full-system-key-demo" in metadata["langfuse_tags"]
-    assert "workflow:demo_summary" in metadata["langfuse_tags"]
+    assert "sys_code:full-system-key-demo" in metadata["langfuse_tags"]
+    assert "workflow:demo-summary" in metadata["langfuse_tags"]

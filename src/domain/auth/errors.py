@@ -1,2 +1,2 @@
-class InvalidSystemKeyError(ValueError):
+class InvalidSysCodeError(ValueError):
     pass

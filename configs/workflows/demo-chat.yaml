@@ -14,4 +14,4 @@ llm:
       max_wait: 1000
 
 prompts:
-  system_prompt: "You are the demo_chat assistant. Answer conversationally and keep continuity across turns."
+  system_prompt: "You are the demo-chat assistant. Answer conversationally and keep continuity across turns."

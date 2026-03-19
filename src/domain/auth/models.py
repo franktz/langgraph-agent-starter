@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class RequestContext:
-    systemkey: str
+    sys_code: str
     session_id: str
     user_id: str | None
     workflow: str
@@ -14,6 +14,6 @@ class RequestContext:
     def thread_id(self) -> str:
         user_id = self.user_id or "-"
         return (
-            f"workflow={self.workflow}|systemkey={self.systemkey}|"
+            f"workflow={self.workflow}|sys_code={self.sys_code}|"
             f"user_id={user_id}|session_id={self.session_id}"
         )

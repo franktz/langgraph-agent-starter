@@ -5,5 +5,5 @@ from typing import TypedDict
 
 class DemoSummaryState(TypedDict, total=False):
     question: str
-    systemkey: str
+    sys_code: str
     summary: str
