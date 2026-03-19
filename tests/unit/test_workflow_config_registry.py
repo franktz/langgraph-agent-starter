@@ -30,6 +30,8 @@ def test_workflow_config_registry_propagates_nacos_backend_defaults(monkeypatch)
     root_provider._raw["nacos"] = {  # type: ignore[attr-defined]
         "server_addr": "127.0.0.1:8848",
         "group": "DEFAULT_GROUP",
+        "sdk_log_path": "logs/nacos.log",
+        "sdk_log_level": "INFO",
     }
     root_provider._conf = type(root_provider.conf)(root_provider._raw)  # type: ignore[attr-defined]
     logger_factory = setup_logging(root_provider)
@@ -47,6 +49,8 @@ def test_workflow_config_registry_propagates_nacos_backend_defaults(monkeypatch)
         assert nacos_settings is not None
         assert nacos_settings.backend.value == "auto"
         assert nacos_settings.polling_interval_seconds == 2.0
+        assert nacos_settings.sdk_log_path == "logs/nacos.log"
+        assert nacos_settings.sdk_log_level == "INFO"
     finally:
         registry.close()
         close_dynamic_config_provider(root_provider)

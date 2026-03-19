@@ -122,6 +122,8 @@ class WorkflowConfigRegistry:
             base_nacos,
             "polling_interval_seconds",
         )
+        sdk_log_path = self._pick(item_nacos, default_nacos, root_nacos, base_nacos, "sdk_log_path")
+        sdk_log_level = self._pick(item_nacos, default_nacos, root_nacos, base_nacos, "sdk_log_level")
         return NacosSettings(
             server_addr=str(server_addr),
             namespace=str(namespace) if namespace is not None else None,
@@ -131,6 +133,8 @@ class WorkflowConfigRegistry:
             password=str(password) if password is not None else None,
             backend=self._parse_backend(backend),
             polling_interval_seconds=self._parse_polling_interval(polling_interval_seconds),
+            sdk_log_path=str(sdk_log_path) if sdk_log_path is not None else None,
+            sdk_log_level=sdk_log_level,
         )
 
     def _pick(

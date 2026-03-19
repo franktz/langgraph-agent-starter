@@ -82,6 +82,18 @@ uv run --python 3.12 ruff format .
 - `configs/workflows/demo-hitl.yaml`
 - `configs/workflows/demo-summary.yaml`
 
+Nacos SDK 日志相关配置放在根配置的 `nacos` 节点下：
+
+- `nacos.sdk_log_path`
+  可选，指定 SDK 日志输出目标。若填写文件路径如 `logs/nacos.log`，则会写入该文件；若填写目录路径，则交给 SDK 使用默认文件名。
+- `nacos.sdk_log_level`
+  可选，指定 SDK 日志级别，支持 `DEBUG`、`INFO`、`WARNING`、`ERROR` 等标准级别名称，也支持整数级别。
+
+当前示例配置为：
+
+- `nacos.sdk_log_path: logs/nacos.log`
+- `nacos.sdk_log_level: INFO`
+
 默认示例配置可以安全公开：
 
 - Langfuse 默认关闭

@@ -527,16 +527,16 @@ wheels = [
 
 [[package]]
 name = "dynamic-config-nacos"
-version = "0.1.1"
+version = "0.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "nacos-sdk-python" },
     { name = "pyyaml" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f9/12/1ebfc855fc9689ee0dbcc8b25b5815656b7024eb662b1717654630cc7727/dynamic_config_nacos-0.1.1.tar.gz", hash = "sha256:b3e806dab0b6d120349ef5bfba346967dfa79be7167539f17d52850381487e9c", size = 24090, upload-time = "2026-03-15T10:42:55.187Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8f/e0/6182027129373b4715005c9eee09741c5dee56beea071b26beaeb15127e6/dynamic_config_nacos-0.1.2.tar.gz", hash = "sha256:76c0864335e45b564055760bb000472f3b45265cfdb522718590da8706115bd5", size = 26561, upload-time = "2026-03-19T15:57:37.577Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/09/b9/12f35a7929f22fdd6d8e24fa0d5b4c0e4a7d1fb4db27990321ed1f68e83e/dynamic_config_nacos-0.1.1-py3-none-any.whl", hash = "sha256:df62ba9974e04c93d013ae1aa6556431b5409faa634468f2d9e67cbc31f122a7", size = 12125, upload-time = "2026-03-15T10:42:53.825Z" },
+    { url = "https://files.pythonhosted.org/packages/24/a9/2b90e8346a8f82250dddb5ba8e3b5232c3777fcacfeddb9f98f1d5a1b96a/dynamic_config_nacos-0.1.2-py3-none-any.whl", hash = "sha256:e9397cccae596ce332d48093710aea55ec442d59137baf75d4a5b9fd2d229c7e", size = 13562, upload-time = "2026-03-19T15:57:36.357Z" },
 ]
 
 [[package]]
@@ -1008,7 +1008,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dynamic-config-nacos", specifier = "==0.1.1" },
+    { name = "dynamic-config-nacos", specifier = "==0.1.2" },
     { name = "fastapi", specifier = ">=0.110" },
     { name = "gunicorn", specifier = ">=23.0" },
     { name = "httpx", specifier = ">=0.27" },

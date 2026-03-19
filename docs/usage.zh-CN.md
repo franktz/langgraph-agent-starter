@@ -11,8 +11,8 @@
 
 ## 请求头约定
 
-- `systemkey`
-  业务系统标识，主请求头字段为 `systemkey`
+- `sysCode`
+  业务系统标识，主请求头字段为 `sysCode`
 - `session-id`
   会话或线程标识
 - `user-id`
@@ -23,8 +23,8 @@
 - `model -> workflow`
   OpenAI 风格请求体里的 `model` 决定要调用哪个 workflow 图
   `model` 为必填，缺失时返回 `400 missing_model`
-- `systemkey -> business scope`
-  请求头里的 `systemkey` 用于调用方身份、业务隔离与可选校验，
+- `sysCode -> business scope`
+  请求头里的 `sysCode` 用于调用方身份、业务隔离与可选校验，
   不再决定具体使用哪个 LLM 配置
 
 ## Chat Completion 行为
@@ -58,12 +58,14 @@
 - `server.port`
 - `server.workers`
 - `api.auth.enabled`
-- `api.auth.systemkeys`
+- `api.auth.sys_codes`
 - `langgraph.checkpointer`
 - `langfuse`
 - `workflow_configs`
 - `nacos.backend`
 - `nacos.polling_interval_seconds`
+- `nacos.sdk_log_path`
+- `nacos.sdk_log_level`
 
 ### 每张图的配置映射
 
@@ -77,10 +79,10 @@ workflow_configs:
       polling_interval_seconds: 2
       data_id_template: "langgraph-agent-starter.workflow.{workflow}.yaml"
   items:
-    demo_hitl:
-      local_path: configs/workflows/demo_hitl.yaml
+    demo-hitl:
+      local_path: configs/workflows/demo-hitl.yaml
       nacos:
-        data_id: langgraph-agent-starter.workflow.demo_hitl.yaml
+        data_id: langgraph-agent-starter.workflow.demo-hitl.yaml
 ```
 
 ### 新增业务系统
@@ -89,9 +91,34 @@ workflow_configs:
 api:
   auth:
     enabled: true
-    systemkeys:
+    sys_codes:
       - reporting-system
 ```
+
+### 配置 Nacos SDK 日志
+
+从 `dynamic-config-nacos 0.1.2` 开始，可以直接配置底层
+`nacos-sdk-python` 的日志输出：
+
+```yaml
+nacos:
+  sdk_log_path: logs/nacos.log
+  sdk_log_level: INFO
+```
+
+规则如下：
+
+- `sdk_log_path`
+  - 如果是文件路径，会直接写入该文件，例如 `logs/nacos.log`
+  - 如果是目录路径，则由 SDK 在该目录下使用默认文件名
+- `sdk_log_level`
+  - 支持 `DEBUG`、`INFO`、`WARNING`、`ERROR` 等标准日志级别名称
+  - 也支持整数日志级别
+
+同样也可以通过环境变量配置：
+
+- `NACOS_SDK_LOG_PATH`
+- `NACOS_SDK_LOG_LEVEL`
 
 然后在 workflow 自己的配置里补充默认 LLM 定义：
 
@@ -134,8 +161,8 @@ trace 会自动带上：
 
 - 顶层 `session_id`
 - 顶层 `user_id`
-- metadata 中的 `systemkey`、`workflow`
-- tags 中的 `workflow:<workflow>`、`systemkey:<systemkey>`、`request_id:<request_id>`
+- metadata 中的 `sys_code`、`workflow`
+- tags 中的 `workflow:<workflow>`、`sys_code:<sys_code>`、`request_id:<request_id>`
 
 ### 推送 Nacos 配置
 
@@ -146,8 +173,8 @@ trace 会自动带上：
 默认推送：
 
 - `configs/local.yaml`
-- `configs/workflows/demo_hitl.yaml`
-- `configs/workflows/demo_summary.yaml`
+- `configs/workflows/demo-hitl.yaml`
+- `configs/workflows/demo-summary.yaml`
 
 ### 启动方式
 
@@ -213,7 +240,7 @@ llm = resolve_workflow_llm(
 ### 暴露给调用方
 
 调用方通过 OpenAI 风格的 `model` 选择 workflow。
-如果某张图只服务部分系统，再结合 `systemkey` 做业务隔离。
+如果某张图只服务部分系统，再结合 `sysCode` 做业务隔离。
 
 ## Nacos Backend 选项
 

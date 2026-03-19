@@ -1,10 +1,12 @@
 nacos:
   server_addr: 192.168.50.62:8848
   namespace: null
-  data_id: langgraph-agent-starter.yaml
+  data_id: langgraph-agent-starter.local.yaml
   group: DEFAULT_GROUP
   backend: sdk_v2
-  polling_interval_seconds: 2
+  polling_interval_seconds: 5
+  sdk_log_path: logs/nacos.log
+  sdk_log_level: INFO
   username: nacos
   password: nacos
 
@@ -46,8 +48,8 @@ workflow_configs:
     nacos:
       enabled: true
       group: LANGGRAPH_AGENT_STARTER_WORKFLOW
-      backend: auto
-      polling_interval_seconds: 2
+      backend: sdk_v2
+      polling_interval_seconds: 5
       data_id_template: "langgraph-agent-starter.workflow.{workflow}.yaml"
   items:
     demo-chat:

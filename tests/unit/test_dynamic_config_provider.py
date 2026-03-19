@@ -33,6 +33,8 @@ def test_dynamic_config_provider_loads_explicit_http_backend_from_env(monkeypatc
     monkeypatch.setenv("NACOS_SERVER_ADDR", "127.0.0.1:8848")
     monkeypatch.setenv("NACOS_BACKEND", "http")
     monkeypatch.setenv("NACOS_POLLING_INTERVAL_SECONDS", "5")
+    monkeypatch.setenv("NACOS_SDK_LOG_PATH", "logs/nacos.log")
+    monkeypatch.setenv("NACOS_SDK_LOG_LEVEL", "INFO")
     monkeypatch.setattr(
         provider_module,
         "create_nacos_backend",
@@ -46,6 +48,8 @@ def test_dynamic_config_provider_loads_explicit_http_backend_from_env(monkeypatc
         assert provider.nacos_settings is not None
         assert provider.nacos_settings.backend == NacosBackendType.HTTP
         assert provider.nacos_settings.polling_interval_seconds == 5.0
+        assert provider.nacos_settings.sdk_log_path == "logs/nacos.log"
+        assert provider.nacos_settings.sdk_log_level == 20
     finally:
         close_dynamic_config_provider(provider)
 

@@ -85,6 +85,21 @@ uv run --python 3.12 ruff format .
 - `configs/workflows/demo-hitl.yaml`
 - `configs/workflows/demo-summary.yaml`
 
+Nacos SDK log settings are configured at the root `nacos` section:
+
+- `nacos.sdk_log_path`
+  Optional SDK log target. A file path such as `logs/nacos.log` writes all
+  Nacos SDK logs into that file; a directory path lets the SDK manage its
+  default file names.
+- `nacos.sdk_log_level`
+  Optional SDK log level. Accepts standard names such as `DEBUG`, `INFO`,
+  `WARNING`, `ERROR`, or an integer level.
+
+The sample config uses:
+
+- `nacos.sdk_log_path: logs/nacos.log`
+- `nacos.sdk_log_level: INFO`
+
 The default sample configuration is safe to publish:
 
 - Langfuse is disabled by default

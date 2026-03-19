@@ -11,8 +11,8 @@
 
 ## Header Conventions
 
-- `systemkey`
-  Business system identifier. The primary request header is `systemkey`.
+- `sysCode`
+  Business system identifier. The primary request header is `sysCode`.
 - `session-id`
   Conversation or thread identifier.
 - `user-id`
@@ -23,8 +23,8 @@
 - `model -> workflow`
   The OpenAI-style `model` field selects which workflow graph to run.
   It is required; missing `model` returns `400 missing_model`.
-- `systemkey -> business scope`
-  The request header `systemkey` is used for caller identity, business
+- `sysCode -> business scope`
+  The request header `sysCode` is used for caller identity, business
   isolation, and optional validation. It no longer selects the LLM
   configuration.
 
@@ -61,12 +61,14 @@ To resume a HITL flow:
 - `server.port`
 - `server.workers`
 - `api.auth.enabled`
-- `api.auth.systemkeys`
+- `api.auth.sys_codes`
 - `langgraph.checkpointer`
 - `langfuse`
 - `workflow_configs`
 - `nacos.backend`
 - `nacos.polling_interval_seconds`
+- `nacos.sdk_log_path`
+- `nacos.sdk_log_level`
 
 ### Per-Workflow Config Mapping
 
@@ -80,10 +82,10 @@ workflow_configs:
       polling_interval_seconds: 2
       data_id_template: "langgraph-agent-starter.workflow.{workflow}.yaml"
   items:
-    demo_hitl:
-      local_path: configs/workflows/demo_hitl.yaml
+    demo-hitl:
+      local_path: configs/workflows/demo-hitl.yaml
       nacos:
-        data_id: langgraph-agent-starter.workflow.demo_hitl.yaml
+        data_id: langgraph-agent-starter.workflow.demo-hitl.yaml
 ```
 
 ### Add a New Business System
@@ -92,9 +94,34 @@ workflow_configs:
 api:
   auth:
     enabled: true
-    systemkeys:
+    sys_codes:
       - reporting-system
 ```
+
+### Configure Nacos SDK Logs
+
+You can configure the underlying `nacos-sdk-python` logger through
+`dynamic-config-nacos 0.1.2+`:
+
+```yaml
+nacos:
+  sdk_log_path: logs/nacos.log
+  sdk_log_level: INFO
+```
+
+Rules:
+
+- `sdk_log_path`
+  - file path: writes to the exact file, for example `logs/nacos.log`
+  - directory path: lets the SDK use its default file naming under that directory
+- `sdk_log_level`
+  - accepts names such as `DEBUG`, `INFO`, `WARNING`, `ERROR`
+  - also accepts integer logging levels
+
+The same fields can also be set through environment variables:
+
+- `NACOS_SDK_LOG_PATH`
+- `NACOS_SDK_LOG_LEVEL`
 
 Then add the workflow-local default LLM definition:
 
@@ -140,8 +167,8 @@ Trace metadata automatically includes:
 
 - top-level `session_id`
 - top-level `user_id`
-- metadata fields such as `systemkey` and `workflow`
-- tags such as `workflow:<workflow>`, `systemkey:<systemkey>`, and
+- metadata fields such as `sys_code` and `workflow`
+- tags such as `workflow:<workflow>`, `sys_code:<sys_code>`, and
   `request_id:<request_id>`
 
 ### Push Nacos Config
@@ -153,8 +180,8 @@ Example helper script:
 Default publish targets:
 
 - `configs/local.yaml`
-- `configs/workflows/demo_hitl.yaml`
-- `configs/workflows/demo_summary.yaml`
+- `configs/workflows/demo-hitl.yaml`
+- `configs/workflows/demo-summary.yaml`
 
 ### Startup Modes
 
@@ -221,7 +248,7 @@ Register the graph in `src/workflows/registry.py`.
 ### Expose It to Callers
 
 Callers select workflows through the OpenAI-style `model` field.
-If a workflow should only serve certain systems, combine that with `systemkey`
+If a workflow should only serve certain systems, combine that with `sysCode`
 for business isolation.
 
 ## Nacos Backend Options
