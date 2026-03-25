@@ -32,7 +32,7 @@ def _normalize_roles(roles: str | Collection[str] | None) -> set[str]:
     normalized_roles = {
         str(role).strip().lower()
         for role in roles
-        if str(role).strip()
+        if role is not None and str(role).strip()
     }
     return normalized_roles or {"tool", "user"}
 
