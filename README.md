@@ -17,7 +17,7 @@ between platform engineering concerns and workflow implementation.
 - Root config plus per-workflow config layering, with workflow-owned LLM
   configuration
 - Nacos-backed dynamic configuration with local YAML fallback
-- Redis or in-memory LangGraph checkpointer support
+- Redis, MySQL, MongoDB, or in-memory LangGraph checkpointer support
 - Reusable `dynamic_config` capability consumed from the published PyPI package
   `dynamic-config-nacos`
 
@@ -126,7 +126,7 @@ For `demo-chat`, conversation continuity is scoped by the combination of
 - [Design Guide](docs/design.md)
 - [Design Guide (Chinese)](docs/design.zh-CN.md)
 - [Changelog](CHANGELOG.md)
-- [Release Notes v0.1.3](docs/releases/v0.1.3.md)
+- [Release Notes v0.1.4](docs/releases/v0.1.4.md)
 
 ## API Examples
 

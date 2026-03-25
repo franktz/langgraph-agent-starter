@@ -20,7 +20,7 @@
 - 通过 Langfuse CallbackHandler 接入观测
 - 支持根配置与 workflow 配置分层，LLM 定义由 workflow 独立管理
 - 支持 Nacos 动态配置与本地 YAML fallback
-- 支持 Redis / memory 两种 LangGraph checkpointer
+- 支持 Redis / MySQL / MongoDB / memory 四类 LangGraph checkpointer
 - 通过 PyPI 包 `dynamic-config-nacos` 复用动态配置能力
 
 ## 关键运行约定
@@ -118,4 +118,4 @@ Nacos SDK 日志相关配置放在根配置的 `nacos` 节点下：
 - [设计说明](docs/design.zh-CN.md)
 - [Design Guide](docs/design.md)
 - [变更日志](CHANGELOG.md)
-- [v0.1.3 发版说明](docs/releases/v0.1.3.md)
+- [v0.1.4 发版说明](docs/releases/v0.1.4.md)

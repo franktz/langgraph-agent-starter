@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.1.4] - 2026-03-26
+
+### Added
+
+- Added `input_messages` and `raw_input_messages` runtime inputs for non-conversation workflows so each request can pass current-turn messages into the graph even when conversation persistence is disabled at the workflow level.
+- Added a public `last_text_from_input_messages(...)` helper for extracting the latest relevant text from request-scoped input messages with configurable roles.
+- Added integration coverage to verify `raw_input_messages` preserves undeclared raw fields such as assistant `tool_calls`.
+- Added support for MySQL and MongoDB LangGraph checkpointer backends alongside the existing `memory` and Redis options.
+- Added Redis `cluster_mode` configuration support for the checkpointer backend.
+- Added release notes for `v0.1.4`.
+
+### Changed
+
+- Upgraded `dynamic-config-nacos` from `0.1.2` to `0.1.3`.
+- Removed `WorkflowRuntime._session_state` and simplified runtime state handling around per-request graph input assembly.
+- Changed checkpointer configuration to support `backend: null` for disabling persistence, while grouping backend-specific settings under `langgraph.checkpointer.redis`, `langgraph.checkpointer.mysql`, and `langgraph.checkpointer.mongodb`.
+- Changed non-conversation workflow state semantics to use schema-normalized `input_messages` plus raw-body `raw_input_messages`, and stopped populating the legacy `question` field.
+- Changed non-conversation resume behavior so request-scoped `input_messages`, `raw_input_messages`, and `sys_code` overwrite prior persisted values instead of accumulating across requests.
+
 ## [0.1.3] - 2026-03-20
 
 ### Added
