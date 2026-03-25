@@ -36,6 +36,7 @@ def test_runtime_langfuse_metadata_contains_filterable_fields() -> None:
         langfuse_factory=DummyLangfuseFactory(),
         llm_gateway=DummyLlmGateway(),  # type: ignore[arg-type]
     )
+    assert not hasattr(runtime, "_session_state")
 
     ctx = RequestContext(
         sys_code="full-system-key-demo",

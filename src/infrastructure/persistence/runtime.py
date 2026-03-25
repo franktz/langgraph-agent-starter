@@ -41,7 +41,6 @@ class WorkflowRuntime:
         self._llm_gateway = llm_gateway
         self._checkpointer_handle = None
         self._graph_cache: dict[str, Any] = {}
-        self._session_state: dict[str, dict[str, Any]] = {}
 
     async def start(self) -> None:
         self._checkpointer_handle = await self._checkpointer_builder(self._config_provider)
@@ -162,7 +161,6 @@ class WorkflowRuntime:
                 )
         if isinstance(result, dict) and result.get("__interrupt__") is not None:
             interrupt_payload = self._normalize_interrupt(result.get("__interrupt__"))
-            self._session_state[ctx.thread_id] = {"workflow": ctx.workflow, "interrupt": interrupt_payload}
             self._logger.info(
                 "[HITL] workflow=%s session=%s -> interrupt:waiting_human_input payload=%s",
                 ctx.workflow,
@@ -192,7 +190,6 @@ class WorkflowRuntime:
                 },
                 "finish_reason": "tool_calls",
             }
-        self._session_state.pop(ctx.thread_id, None)
         self._logger.info(
             "[FLOW] workflow=%s session=%s -> run:completed output=%r",
             ctx.workflow,

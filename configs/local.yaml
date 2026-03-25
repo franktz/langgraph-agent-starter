@@ -27,7 +27,16 @@ logging:
 langgraph:
   checkpointer:
     backend: memory
-    redis_url: redis://127.0.0.1:6379/0
+    redis:
+      url: redis://127.0.0.1:6379/0
+      cluster_mode: false
+    mysql:
+      conn_string: mysql+aiomysql://root:password@127.0.0.1:3306/langgraph
+    mongodb:
+      conn_string: mongodb://127.0.0.1:27017
+      db_name: langgraph_checkpoint
+      checkpoint_collection_name: checkpoints
+      writes_collection_name: checkpoint_writes
 
 langfuse:
   enabled: false
