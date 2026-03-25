@@ -5,6 +5,7 @@ import logging
 from dynamic_config.provider import DynamicConfigProvider
 from infrastructure.llm.context import get_llm_gateway
 from infrastructure.llm.gateway import ChatMessage
+from workflows.common.input_messages import last_text_from_input_messages
 from workflows.common.llms import resolve_workflow_llm
 from workflows.common.log_utils import config_metadata, preview_text
 
@@ -22,7 +23,7 @@ async def summarize(
     llm = resolve_workflow_llm(
         workflow_config=workflow_config,
     )
-    question = str(state.get("question", ""))
+    question = last_text_from_input_messages(state.get("input_messages"))
     prefix = ""
     suffix = ""
     if workflow_config is not None:

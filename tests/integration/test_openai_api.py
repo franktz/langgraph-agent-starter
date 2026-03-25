@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import json
 from contextlib import asynccontextmanager
+from dataclasses import replace
+from typing import Any, TypedDict
 
 from fastapi.testclient import TestClient
+from langgraph.graph import END, START, StateGraph
 
 from infrastructure.http.errors import HttpClientResponseError
 
@@ -278,6 +281,68 @@ def test_chat_completions_hitl_resume_returns_final_content(client: TestClient) 
     assert payload["choices"][0]["finish_reason"] == "stop"
     assert "safer deploy handling" in payload["choices"][0]["message"]["content"]
     assert payload["usage"]["completion_tokens"] > 0
+
+
+def test_chat_completions_preserves_raw_input_messages_with_assistant_tool_calls(
+    client: TestClient,
+) -> None:
+    captured: dict[str, object] = {}
+    registry = client.app.state.container.workflow_registry
+    original_spec = registry._specs["demo-summary"]  # type: ignore[attr-defined]
+
+    class _ProbeState(TypedDict, total=False):
+        input_messages: list[dict[str, Any]]
+        raw_input_messages: list[dict[str, Any]]
+        sys_code: str
+
+    def _build_probe_graph(*, checkpointer=None, workflow_config=None):  # type: ignore[no-untyped-def]
+        async def _probe_node(state, config):  # type: ignore[no-untyped-def]
+            captured["state"] = state
+            return {"summary": json.dumps(state.get("raw_input_messages", []), ensure_ascii=False)}
+
+        builder: StateGraph = StateGraph(_ProbeState)
+        builder.add_node("probe", _probe_node)
+        builder.add_edge(START, "probe")
+        builder.add_edge("probe", END)
+        return builder.compile(checkpointer=checkpointer)
+
+    registry._specs["demo-summary"] = replace(original_spec, builder=_build_probe_graph)  # type: ignore[attr-defined]
+    try:
+        response = client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "demo-summary",
+                "messages": [
+                    {"role": "user", "content": "Summarize this payload"},
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_probe_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "human_review",
+                                    "arguments": "{\"draft\":\"probe\"}",
+                                },
+                            }
+                        ],
+                        "extra_field": "keep-me-raw",
+                    },
+                ],
+            },
+            headers={"sysCode": "demo-system", "session-id": "raw-input-session", "user-id": "u7"},
+        )
+    finally:
+        registry._specs["demo-summary"] = original_spec  # type: ignore[attr-defined]
+        client.app.state.container.workflow_runtime._graph_cache.pop("demo-summary", None)  # type: ignore[attr-defined]
+
+    assert response.status_code == 200
+    state = captured["state"]
+    assert isinstance(state, dict)
+    assert state["raw_input_messages"][1]["tool_calls"][0]["id"] == "call_probe_1"
+    assert state["raw_input_messages"][1]["tool_calls"][0]["function"]["name"] == "human_review"
+    assert state["raw_input_messages"][1]["extra_field"] == "keep-me-raw"
 
 
 def test_chat_completions_rejects_unknown_model(client: TestClient) -> None:

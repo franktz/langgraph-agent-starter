@@ -47,6 +47,15 @@ def _error_response(
     )
 
 
+def _extract_raw_input_messages(body: object) -> list[dict[str, object]]:
+    if not isinstance(body, dict):
+        return []
+    messages = body.get("messages")
+    if not isinstance(messages, list):
+        return []
+    return [item for item in messages if isinstance(item, dict)]
+
+
 async def _bind_stream_logging_context(
     *,
     generator: AsyncIterator[str],
@@ -88,6 +97,8 @@ async def chat_completions(
     session_id: str | None = Header(default=None, alias="session-id"),
     user_id: str | None = Header(default=None, alias="user-id"),
 ):
+    raw_body = await request.json()
+    raw_input_messages = _extract_raw_input_messages(raw_body)
     logger.info(
         "[HTTP] HTTP request received request_id=%s session=%s -> POST /v1/chat/completions model=%s stream=%s sysCode=%s messages=%s",
         getattr(request.state, "request_id", "-"),
@@ -138,7 +149,11 @@ async def chat_completions(
 
     if req.stream:
         request_id, resolved_session_id = _response_ids(request, ctx.session_id)
-        generator = service.stream_chat_completion(req=req, ctx=ctx)
+        generator = service.stream_chat_completion(
+            req=req,
+            ctx=ctx,
+            raw_input_messages=raw_input_messages,
+        )
         try:
             with _stream_logging_context(
                 request_id=request_id,
@@ -179,7 +194,11 @@ async def chat_completions(
         )
 
     try:
-        payload = await service.create_chat_completion(req=req, ctx=ctx)
+        payload = await service.create_chat_completion(
+            req=req,
+            ctx=ctx,
+            raw_input_messages=raw_input_messages,
+        )
     except HttpClientTimeoutError as exc:
         return _error_response(
             request=request,

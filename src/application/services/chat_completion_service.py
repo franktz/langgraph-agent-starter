@@ -74,10 +74,20 @@ class ChatCompletionService:
             workflow=route.workflow,
         )
 
-    async def create_chat_completion(self, *, req: ChatCompletionRequest, ctx: RequestContext) -> dict[str, object]:
+    async def create_chat_completion(
+        self,
+        *,
+        req: ChatCompletionRequest,
+        ctx: RequestContext,
+        raw_input_messages: list[dict[str, object]] | None = None,
+    ) -> dict[str, object]:
         created = int(time.time())
         completion_id = f"chatcmpl-{uuid.uuid4().hex}"
-        result = await self._workflow_runtime.run_once(request=req, ctx=ctx)
+        result = await self._workflow_runtime.run_once(
+            request=req,
+            ctx=ctx,
+            raw_input_messages=raw_input_messages or [],
+        )
         message = result.get("message", {}) if isinstance(result, dict) else {}
         output_text = message.get("content") if isinstance(message, dict) else None
         return {
@@ -92,7 +102,11 @@ class ChatCompletionService:
         }
 
     async def stream_chat_completion(
-        self, *, req: ChatCompletionRequest, ctx: RequestContext
+        self,
+        *,
+        req: ChatCompletionRequest,
+        ctx: RequestContext,
+        raw_input_messages: list[dict[str, object]] | None = None,
     ) -> AsyncIterator[str]:
         created = int(time.time())
         completion_id = f"chatcmpl-{uuid.uuid4().hex}"
@@ -101,5 +115,6 @@ class ChatCompletionService:
             ctx=ctx,
             completion_id=completion_id,
             created=created,
+            raw_input_messages=raw_input_messages or [],
         ):
             yield chunk

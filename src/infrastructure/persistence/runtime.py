@@ -52,10 +52,18 @@ class WorkflowRuntime:
             self._checkpointer_handle = None
         self._logger.info("workflow runtime stopped")
 
-    async def run_once(self, *, request: ChatCompletionRequest, ctx: RequestContext) -> dict[str, Any]:
+    async def run_once(
+        self,
+        *,
+        request: ChatCompletionRequest,
+        ctx: RequestContext,
+        raw_input_messages: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         graph = self._get_graph(ctx.workflow)
         spec = self._workflow_registry.get_spec(ctx.workflow)
-        last_user = self._last_user_text(request) or ""
+        last_input = self._last_tool_or_user_text(request) or ""
+        input_messages = self._normalized_input_messages(request)
+        raw_input_messages = raw_input_messages or []
         self._logger.info(
             "[FLOW] workflow=%s session=%s user=%s -> run:start",
             ctx.workflow,
@@ -141,22 +149,36 @@ class WorkflowRuntime:
                 extra={"workflow": ctx.workflow, "session_id": ctx.session_id, "resume_payload": resume_payload},
             )
             with bind_llm_gateway(self._llm_gateway):
-                result = await graph.ainvoke(Command(resume=resume_payload), config=self._config(ctx))
+                result = await graph.ainvoke(
+                    Command(
+                        resume=resume_payload,
+                        update={
+                            "input_messages": input_messages,
+                            "raw_input_messages": raw_input_messages,
+                            "sys_code": ctx.sys_code,
+                        },
+                    ),
+                    config=self._config(ctx),
+                )
         else:
             self._logger.info(
-                "[FLOW] workflow=%s session=%s -> input:accepted question=%r",
+                "[FLOW] workflow=%s session=%s -> input:accepted last_input=%r",
                 ctx.workflow,
                 ctx.session_id,
-                self._preview_text(last_user),
+                self._preview_text(last_input),
                 extra={
                     "workflow": ctx.workflow,
                     "session_id": ctx.session_id,
-                    "question_preview": self._preview_text(last_user),
+                    "last_input_preview": self._preview_text(last_input),
                 },
             )
             with bind_llm_gateway(self._llm_gateway):
                 result = await graph.ainvoke(
-                    {"question": last_user, "sys_code": ctx.sys_code},
+                    {
+                        "input_messages": input_messages,
+                        "raw_input_messages": raw_input_messages,
+                        "sys_code": ctx.sys_code,
+                    },
                     config=self._config(ctx),
                 )
         if isinstance(result, dict) and result.get("__interrupt__") is not None:
@@ -205,7 +227,13 @@ class WorkflowRuntime:
         return {"index": 0, "message": {"role": "assistant", "content": content}, "finish_reason": "stop"}
 
     async def stream(
-        self, *, request: ChatCompletionRequest, ctx: RequestContext, completion_id: str, created: int
+        self,
+        *,
+        request: ChatCompletionRequest,
+        ctx: RequestContext,
+        completion_id: str,
+        created: int,
+        raw_input_messages: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[str]:
         queue: asyncio.Queue[StreamFrame] = asyncio.Queue()
         streamed_chunk_count = 0
@@ -218,7 +246,11 @@ class WorkflowRuntime:
 
         async def _run_with_stream_writer() -> dict[str, Any]:
             with bind_stream_writer(_write_frame):
-                return await self.run_once(request=request, ctx=ctx)
+                return await self.run_once(
+                    request=request,
+                    ctx=ctx,
+                    raw_input_messages=raw_input_messages,
+                )
 
         task = asyncio.create_task(_run_with_stream_writer())
         self._logger.info(
@@ -403,6 +435,9 @@ class WorkflowRuntime:
                 messages.append(normalized)
         return messages
 
+    def _normalized_input_messages(self, request: ChatCompletionRequest) -> list[dict[str, Any]]:
+        return [message.model_dump(mode="python") for message in request.messages]
+
     def _normalize_request_message(self, *, message, index: int) -> BaseMessage | None:
         content = self._message_text(message.content)
         role = str(message.role or "").strip().lower()
@@ -529,6 +564,16 @@ class WorkflowRuntime:
     def _last_user_text(self, request: ChatCompletionRequest) -> str | None:
         for message in reversed(request.messages):
             if message.role != "user":
+                continue
+            content = self._message_text(message.content)
+            if content:
+                return content
+        return None
+
+    def _last_tool_or_user_text(self, request: ChatCompletionRequest) -> str | None:
+        for message in reversed(request.messages):
+            role = str(message.role or "").strip().lower()
+            if role not in {"tool", "user"}:
                 continue
             content = self._message_text(message.content)
             if content:
